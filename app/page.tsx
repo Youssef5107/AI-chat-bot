@@ -1,69 +1,135 @@
-import Image from "next/image";
+"use client";
+
+import { useChat } from "@ai-sdk/react";
+import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
+  const { messages, sendMessage, status, stop } = useChat();
+  const [input, setInput] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const isStreaming = status === "streaming" || status === "submitted";
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [messages, status]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || isStreaming) return;
+    sendMessage({ text });
+    setInput("");
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <div className="flex h-screen flex-col bg-[#15161a] text-[#e9e6df]">
+      {/* Header */}
+      <header className="shrink-0 border-b border-[#2a2b30] px-6 py-5">
+        <div className="mx-auto flex max-w-2xl items-baseline justify-between">
+          <h1 className="font-serif text-lg italic tracking-tight text-[#e9e6df]">
+            Correspondence
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#6b6c72]">
+            {isStreaming ? "receiving…" : "idle"}
+          </span>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-8">
+        <div className="mx-auto flex max-w-2xl flex-col gap-8">
+          {messages.length === 0 && (
+            <div className="py-24 text-center">
+              <p className="font-serif text-xl italic text-[#4d4e54]">
+                No letters yet.
+              </p>
+              <p className="mt-2 font-mono text-xs uppercase tracking-[0.2em] text-[#3d3e44]">
+                Write the first line below
+              </p>
+            </div>
+          )}
+
+          {messages.map((message) => {
+            const text = message.parts
+              .filter((p) => p.type === "text")
+              .map((p) => p.text)
+              .join("");
+
+            const isUser = message.role === "user";
+
+            return (
+              <div key={message.id} className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`font-mono text-[10px] uppercase tracking-[0.2em] ${
+                      isUser ? "text-[#c9a227]" : "text-[#6b6c72]"
+                    }`}
+                  >
+                    {isUser ? "You" : "Model"}
+                  </span>
+                  <span className="h-px flex-1 bg-[#2a2b30]" />
+                </div>
+                <p
+                  className={`whitespace-pre-wrap text-[15px] leading-relaxed ${
+                    isUser ? "text-[#e9e6df]" : "text-[#c7c5bd]"
+                  }`}
+                >
+                  {text || (
+                    <span className="inline-flex gap-1 py-1">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#6b6c72]" />
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#6b6c72] [animation-delay:0.15s]" />
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#6b6c72] [animation-delay:0.3s]" />
+                    </span>
+                  )}
+                </p>
+              </div>
+            );
+          })}
         </div>
-      </main>
+      </div>
+
+      {/* Composer */}
+      <div className="shrink-0 border-t border-[#2a2b30] px-6 py-5">
+        <form
+          onSubmit={handleSubmit}
+          className="mx-auto flex max-w-2xl items-end gap-3"
+        >
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+            }}
+            placeholder="Write your message…"
+            rows={1}
+            className="max-h-40 flex-1 resize-none bg-transparent py-2 text-[15px] text-[#e9e6df] placeholder-[#4d4e54] outline-none"
+          />
+          {isStreaming ? (
+            <button
+              type="button"
+              onClick={() => stop()}
+              className="shrink-0 rounded-full border border-[#3a3b41] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.15em] text-[#c7c5bd] transition hover:border-[#c9a227] hover:text-[#c9a227]"
+            >
+              Stop
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!input.trim()}
+              className="shrink-0 rounded-full bg-[#c9a227] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.15em] text-[#15161a] transition hover:bg-[#dab648] disabled:cursor-not-allowed disabled:bg-[#3a3b41] disabled:text-[#6b6c72]"
+            >
+              Send
+            </button>
+          )}
+        </form>
+      </div>
     </div>
   );
 }
