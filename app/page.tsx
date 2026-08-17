@@ -7,8 +7,24 @@ export default function Home() {
   const { messages, sendMessage, status, stop } = useChat();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
 
   const isStreaming = status === "streaming" || status === "submitted";
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const updateHeight = () => setViewportHeight(vv.height);
+    updateHeight();
+
+    vv.addEventListener("resize", updateHeight);
+    vv.addEventListener("scroll", updateHeight);
+    return () => {
+      vv.removeEventListener("resize", updateHeight);
+      vv.removeEventListener("scroll", updateHeight);
+    };
+  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -26,7 +42,10 @@ export default function Home() {
   };
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#15161a] text-[#e9e6df]">
+    <div
+      className="fixed inset-0 flex flex-col overflow-hidden bg-[#15161a] text-[#e9e6df]"
+      style={viewportHeight ? { height: viewportHeight } : undefined}
+    >
       {/* Header */}
       <header className="shrink-0 border-b border-[#2a2b30] px-6 py-5">
         <div className="mx-auto flex max-w-2xl items-baseline justify-between">
