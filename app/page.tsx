@@ -4,23 +4,7 @@ import { useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
-  const { messages, sendMessage, status, stop, error } = useChat({
-    onError: (error) => {
-      console.error("CLIENT CHAT ERROR:", error);
-    },
-
-    onFinish: ({ message, isError, isAbort, isDisconnect }) => {
-      console.log("CHAT FINISHED");
-      console.log("message:", message);
-      console.log("isError:", isError);
-      console.log("isAbort:", isAbort);
-      console.log("isDisconnect:", isDisconnect);
-    },
-
-    onData: (data) => {
-      console.log("DATA FROM SERVER:", data);
-    },
-  });
+  const { messages, sendMessage, status, stop } = useChat();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +26,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-[#15161a] text-[#e9e6df]">
+    <div className="flex h-dvh flex-col overflow-hidden bg-[#15161a] text-[#e9e6df]">
       {/* Header */}
       <header className="shrink-0 border-b border-[#2a2b30] px-6 py-5">
         <div className="mx-auto flex max-w-2xl items-baseline justify-between">
@@ -79,14 +63,13 @@ export default function Home() {
 
             return (
               <div key={message.id} className="flex flex-col gap-1.5">
-                {error && <div className="text-red-500">{error.message}</div>}
                 <div className="flex items-center gap-2">
                   <span
                     className={`font-mono text-[10px] uppercase tracking-[0.2em] ${
                       isUser ? "text-[#c9a227]" : "text-[#6b6c72]"
                     }`}
                   >
-                    {isUser ? "You" : "AI Model"}
+                    {isUser ? "You" : "Model"}
                   </span>
                   <span className="h-px flex-1 bg-[#2a2b30]" />
                 </div>
