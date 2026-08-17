@@ -86,7 +86,7 @@ export default function Home() {
                       isUser ? "text-[#c9a227]" : "text-[#6b6c72]"
                     }`}
                   >
-                    {isUser ? "You" : "Model"}
+                    {isUser ? "You" : "AI Model"}
                   </span>
                   <span className="h-px flex-1 bg-[#2a2b30]" />
                 </div>
