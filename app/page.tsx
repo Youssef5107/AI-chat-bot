@@ -4,7 +4,8 @@ import { useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
-  const { messages, sendMessage, status, stop, error } = useChat();
+  const { messages, sendMessage, status, stop, error, regenerate, clearError } =
+    useChat();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -91,6 +92,36 @@ export default function Home() {
           })}
         </div>
       </div>
+
+      {error && (
+        <div
+          role="alert"
+          className="shrink-0 border-t border-[#633b38] bg-[#261b1b] px-6 py-3"
+        >
+          <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-[#e8aaa2]">
+              {error.message || "Something went wrong. Please try again."}
+            </p>
+            <div className="flex shrink-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void regenerate()}
+                className="font-mono text-[11px] uppercase tracking-[0.15em] text-[#e9e6df] underline decoration-[#c9a227] underline-offset-4 transition hover:text-[#c9a227]"
+              >
+                Retry
+              </button>
+              <button
+                type="button"
+                onClick={clearError}
+                aria-label="Dismiss error"
+                className="font-mono text-[11px] uppercase tracking-[0.15em] text-[#9c7773] transition hover:text-[#e9aaa2]"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Composer */}
       <div className="shrink-0 border-t border-[#2a2b30] px-6 py-5">
