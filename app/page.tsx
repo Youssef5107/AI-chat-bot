@@ -4,7 +4,7 @@ import { useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
-  const { messages, sendMessage, status, stop } = useChat();
+  const { messages, sendMessage, status, stop, error } = useChat();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
