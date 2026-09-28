@@ -1,1 +1,39 @@
 @import "tailwindcss";
+
+:root {
+  --paper: #f4f1e7;
+  --ink: #20251f;
+  --tomato: #c84f38;
+  --leaf: #426047;
+  --butter: #e7c86c;
+}
+
+::selection {
+  background: var(--butter);
+  color: var(--ink);
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise-in {
+  animation: rise-in 500ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
