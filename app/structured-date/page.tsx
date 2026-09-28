@@ -103,9 +103,9 @@ export default function StructuredDatePage() {
   return (
     <div className="min-h-screen bg-(--paper) text-(--ink)">
       <ChatNavigation active="recipe" />
-      <main className="min-h-screen md:pl-57">
-        <div className="mx-auto grid max-w-330 gap-10 px-5 pb-12 pt-9 sm:px-8 sm:pt-14 lg:grid-cols-[0.88fr_1.12fr] lg:gap-16 lg:pt-19">
-          <section className="rise-in flex flex-col justify-center lg:pb-16">
+      <main className="page-enter min-h-screen md:pl-57">
+        <div className="mx-auto grid min-w-0 max-w-330 gap-10 px-5 pb-12 pt-9 sm:px-8 sm:pt-14 xl:grid-cols-[0.88fr_1.12fr] xl:gap-16 xl:pt-19">
+          <section className="rise-in flex min-w-0 flex-col justify-center xl:pb-16">
             <p className="mb-6 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.2em] text-(--tomato)">
               <span className="h-px w-8 bg-(--tomato)" />
               Your everyday recipe desk
@@ -192,10 +192,10 @@ export default function StructuredDatePage() {
           <section
             aria-label="Recipe result"
             aria-live="polite"
-            className="rise-in overflow-hidden border border-[#20251f]/10 bg-[#fffdf7] shadow-[0_18px_50px_rgba(44,47,37,0.08)] [animation-delay:100ms]"
+            className="rise-in min-w-0 overflow-hidden border border-[#20251f]/10 bg-[#fffdf7] shadow-[0_18px_50px_rgba(44,47,37,0.08)] [animation-delay:100ms]"
           >
             <div
-              className="relative min-h-55 overflow-hidden bg-[#536451] bg-cover bg-center sm:min-h-70"
+              className="image-reveal relative min-h-55 overflow-hidden bg-[#536451] bg-cover bg-center sm:min-h-70"
               style={{
                 backgroundImage:
                   'url("https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=1500&q=85")',
@@ -256,12 +256,12 @@ export default function StructuredDatePage() {
                         {recipe.ingredients.length} things
                       </span>
                     </div>
-                    <ul className="space-y-3">
+                    <ul className="recipe-stagger space-y-3">
                       {recipe.ingredients.map((ingredient, index) => {
                         const isChecked = checkedIngredients.includes(index);
                         return (
                           <li key={`${ingredient.name}-${index}`}>
-                            <label className="flex cursor-pointer items-start gap-3 text-sm leading-5">
+                            <label className="lift-on-hover flex cursor-pointer items-start gap-3 text-sm leading-5">
                               <input
                                 type="checkbox"
                                 checked={isChecked}
@@ -301,7 +301,7 @@ export default function StructuredDatePage() {
                         {completedSteps.length}/{recipe.steps.length} done
                       </span>
                     </div>
-                    <ol className="space-y-4">
+                    <ol className="recipe-stagger space-y-4">
                       {recipe.steps.map((step, index) => {
                         const isComplete = completedSteps.includes(index);
                         return (
@@ -313,7 +313,7 @@ export default function StructuredDatePage() {
                                   toggleNumber(current, index),
                                 )
                               }
-                              className="group flex w-full items-start gap-3 text-left"
+                              className="lift-on-hover group flex w-full items-start gap-3 text-left"
                               aria-pressed={isComplete}
                             >
                               <span

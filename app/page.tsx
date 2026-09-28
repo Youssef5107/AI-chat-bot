@@ -36,7 +36,7 @@ export default function Home() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-(--paper) text-(--ink) md:block">
       <ChatNavigation active="main" />
-      <main className="flex min-h-0 flex-1 flex-col md:ml-57 md:h-dvh">
+      <main className="page-enter flex min-h-0 flex-1 flex-col md:ml-57 md:h-dvh">
         <header className="shrink-0 border-b border-[#20251f]/15 px-5 sm:px-8">
           <div className="mx-auto flex h-18 max-w-250 items-center justify-between">
             <div>
@@ -63,10 +63,10 @@ export default function Home() {
         >
           <div className="mx-auto flex max-w-250 flex-col gap-7">
             {messages.length === 0 && (
-              <div className="overflow-hidden border border-[#20251f]/10 bg-[#e8e9de]">
+              <div className="rise-in overflow-hidden border border-[#20251f]/10 bg-[#e8e9de]">
                 <div
                   aria-hidden="true"
-                  className="relative min-h-55 overflow-hidden bg-[#536451] bg-cover bg-center sm:min-h-65"
+                  className="image-reveal relative min-h-55 overflow-hidden bg-[#536451] bg-cover bg-center sm:min-h-65"
                   style={{
                     backgroundImage:
                       'url("https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1400&q=85")',
@@ -91,7 +91,7 @@ export default function Home() {
                     little curiosity. We’ll work it out together.
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 border-t border-[#20251f]/10 bg-[#f8f6ef] p-4 sm:px-8">
+                <div className="stagger-in flex flex-wrap items-center gap-2 border-t border-[#20251f]/10 bg-[#f8f6ef] p-4 sm:px-8">
                   <span className="mr-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[#898d82]">
                     Start with
                   </span>
@@ -100,7 +100,7 @@ export default function Home() {
                       key={prompt}
                       type="button"
                       onClick={() => setInput(prompt)}
-                      className="border border-[#20251f]/15 px-3 py-2 text-left text-xs text-[#565c51] transition hover:border-(--leaf) hover:text-(--leaf)"
+                      className="lift-on-hover border border-[#20251f]/15 px-3 py-2 text-left text-xs text-[#565c51] transition hover:border-(--leaf) hover:text-(--leaf)"
                     >
                       {prompt}
                     </button>
@@ -119,7 +119,7 @@ export default function Home() {
               return (
                 <article
                   key={message.id}
-                  className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+                  className={`message-arrive flex ${isUser ? "justify-end" : "justify-start"}`}
                 >
                   <div
                     className={`max-w-[92%] ${isUser ? "sm:max-w-[78%]" : "w-full sm:max-w-[88%]"}`}
@@ -189,7 +189,7 @@ export default function Home() {
         <footer className="shrink-0 border-t border-[#20251f]/15 bg-[#f4f1e7]/95 px-5 py-4 backdrop-blur sm:px-8 sm:py-5">
           <form
             onSubmit={handleSubmit}
-            className="mx-auto flex max-w-250 items-end gap-3 border border-[#20251f]/20 bg-[#fffdf7] p-2 pl-4 shadow-[0_8px_24px_rgba(44,47,37,0.05)]"
+            className="composer-focus mx-auto flex max-w-250 items-end gap-3 border border-[#20251f]/20 bg-[#fffdf7] p-2 pl-4 shadow-[0_8px_24px_rgba(44,47,37,0.05)]"
           >
             <label htmlFor="message" className="sr-only">
               Write your message
