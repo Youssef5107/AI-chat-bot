@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import ChatNavigation from "../components/chat-navigation";
 
 type Ingredient = {
   name: string;
@@ -101,284 +101,267 @@ export default function StructuredDatePage() {
   }
 
   return (
-    <main className="min-h-screen bg-(--paper) text-(--ink)">
-      <header className="border-b border-[#20251f]/15 px-5 sm:px-8">
-        <div className="mx-auto flex h-18 max-w-330 items-center justify-between">
-          <a
-            href="/structured-date"
-            className="flex items-center gap-3"
-            aria-label="Mise home"
-          >
-            <span className="grid size-9 place-items-center rounded-full bg-(--tomato) font-serif text-xl italic text-white">
-              m
-            </span>
-            <span className="font-serif text-[22px] leading-none tracking-tight">
-              mise
-            </span>
-          </a>
-          <div className="hidden items-center gap-3 font-mono text-[10px] uppercase tracking-[0.18em] text-[#62685d] sm:flex">
-            <span className="size-1.5 rounded-full bg-(--leaf)" />
-            Recipe studio
-          </div>
-          <Link
-            href="/"
-            className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#62685d] transition hover:text-(--tomato)"
-          >
-            Back to chat <span aria-hidden="true">↗</span>
-          </Link>
-        </div>
-      </header>
-
-      <div className="mx-auto grid max-w-330 gap-10 px-5 pb-12 pt-9 sm:px-8 sm:pt-14 lg:grid-cols-[0.88fr_1.12fr] lg:gap-16 lg:pt-19">
-        <section className="rise-in flex flex-col justify-center lg:pb-16">
-          <p className="mb-6 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.2em] text-(--tomato)">
-            <span className="h-px w-8 bg-(--tomato)" />
-            Your everyday recipe desk
-          </p>
-          <h1 className="max-w-xl font-serif text-[clamp(3.25rem,6vw,5.8rem)] leading-[0.94] tracking-[-0.035em]">
-            What sounds <em className="text-(--leaf)">good?</em>
-          </h1>
-          <p className="mt-6 max-w-md text-[15px] leading-7 text-[#64685e]">
-            Start with a craving, a leftover, or whatever is waiting in the
-            fridge. We’ll turn it into a recipe worth sitting down for.
-          </p>
-
-          <form onSubmit={handleSubmit} className="mt-10 max-w-lg">
-            <label
-              htmlFor="dish"
-              className="mb-2 block font-mono text-[10px] uppercase tracking-[0.16em] text-[#62685d]"
-            >
-              I feel like making...
-            </label>
-            <div className="flex min-h-15 items-stretch border-b-2 border-(--ink) focus-within:border-(--tomato)">
-              <input
-                id="dish"
-                value={dish}
-                onChange={(event) => setDish(event.target.value)}
-                placeholder="e.g. a bright lunch with tomatoes"
-                maxLength={160}
-                required
-                className="min-w-0 flex-1 bg-transparent py-3 pr-3 font-serif text-[19px] outline-none placeholder:text-[#a6a69b]"
-              />
-              <button
-                type="submit"
-                disabled={!dish.trim() || isGenerating}
-                className="my-2 flex shrink-0 items-center gap-3 bg-(--tomato) px-4 font-mono text-[10px] uppercase tracking-[0.12em] text-white transition-colors hover:bg-[#a8402e] disabled:cursor-not-allowed disabled:bg-[#c8c4b8] sm:px-5"
-              >
-                {isGenerating ? "Working" : "Make it"}
-                <span aria-hidden="true">{isGenerating ? "···" : "↗"}</span>
-              </button>
-            </div>
-            <div className="mt-5 flex flex-wrap items-center gap-2">
-              <span className="mr-1 font-mono text-[9px] uppercase tracking-[0.13em] text-[#8b8d82]">
-                Try
-              </span>
-              {ideas.map((idea) => (
-                <button
-                  key={idea}
-                  type="button"
-                  onClick={() => setDish(idea)}
-                  className="rounded-full border border-[#20251f]/20 px-3 py-1.5 text-xs text-[#545a50] transition hover:border-(--leaf) hover:text-(--leaf)"
-                >
-                  {idea}
-                </button>
-              ))}
-            </div>
-          </form>
-
-          {error && (
-            <div
-              role="alert"
-              className="mt-6 flex items-start gap-3 border-l-2 border-(--tomato) bg-[#eadfd3] px-4 py-3 text-sm text-[#75392d]"
-            >
-              <span aria-hidden="true" className="font-serif text-lg leading-5">
-                !
-              </span>
-              <span>{error}</span>
-            </div>
-          )}
-
-          <div className="mt-12 flex items-center gap-4 border-t border-[#20251f]/15 pt-5 text-[11px] text-[#7d8176]">
-            <span className="font-serif text-lg italic text-(--leaf)">01</span>
-            <span>Made around your ingredients</span>
-            <span className="h-px flex-1 bg-[#20251f]/15" />
-            <span className="font-serif text-lg italic text-(--leaf)">02</span>
-            <span>Ready for your kitchen</span>
-          </div>
-        </section>
-
-        <section
-          aria-label="Recipe result"
-          aria-live="polite"
-          className="rise-in overflow-hidden border border-[#20251f]/10 bg-[#fffdf7] shadow-[0_18px_50px_rgba(44,47,37,0.08)] [animation-delay:100ms]"
-        >
-          <div
-            className="relative min-h-55 overflow-hidden bg-[#536451] bg-cover bg-center sm:min-h-70"
-            style={{
-              backgroundImage:
-                'url("https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=1500&q=85")',
-            }}
-          >
-            <div className="absolute inset-0 bg-[#17251d]/35" />
-            <div className="absolute left-5 top-5 flex items-center gap-2 border border-white/45 bg-[#20251f]/20 px-3 py-2 font-mono text-[9px] uppercase tracking-[0.17em] text-white backdrop-blur-sm sm:left-7 sm:top-7">
-              <span className="size-1.5 rounded-full bg-(--butter)" />
-              The everyday table
-            </div>
-            <p className="absolute bottom-5 left-5 max-w-md font-serif text-3xl italic leading-tight text-white sm:bottom-7 sm:left-7 sm:text-[40px]">
-              A little inspiration
-              <br />
-              for what’s next.
+    <div className="min-h-screen bg-(--paper) text-(--ink)">
+      <ChatNavigation active="recipe" />
+      <main className="min-h-screen md:pl-57">
+        <div className="mx-auto grid max-w-330 gap-10 px-5 pb-12 pt-9 sm:px-8 sm:pt-14 lg:grid-cols-[0.88fr_1.12fr] lg:gap-16 lg:pt-19">
+          <section className="rise-in flex flex-col justify-center lg:pb-16">
+            <p className="mb-6 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.2em] text-(--tomato)">
+              <span className="h-px w-8 bg-(--tomato)" />
+              Your everyday recipe desk
             </p>
-            <span className="absolute bottom-6 right-6 hidden font-mono text-[9px] uppercase tracking-[0.18em] text-white/80 sm:block">
-              Good things, made simply
-            </span>
-          </div>
+            <h1 className="max-w-xl font-serif text-[clamp(3.25rem,6vw,5.8rem)] leading-[0.94] tracking-[-0.035em]">
+              What sounds <em className="text-(--leaf)">good?</em>
+            </h1>
+            <p className="mt-6 max-w-md text-[15px] leading-7 text-[#64685e]">
+              Start with a craving, a leftover, or whatever is waiting in the
+              fridge. We’ll turn it into a recipe worth sitting down for.
+            </p>
 
-          {isGenerating ? (
-            <div className="flex min-h-70 flex-col items-center justify-center px-6 py-12 text-center">
-              <span className="mb-5 grid size-12 place-items-center rounded-full border border-(--leaf)/30 text-(--leaf)">
-                <span className="animate-spin font-serif text-2xl">✳</span>
-              </span>
-              <p className="font-serif text-2xl italic">
-                Finding the good bits...
-              </p>
-              <p className="mt-2 text-sm text-[#85877d]">
-                Putting your recipe together
-              </p>
-            </div>
-          ) : recipe ? (
-            <div className="rise-in p-5 sm:p-8">
-              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#20251f]/15 pb-5">
-                <div>
-                  <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.18em] text-(--tomato)">
-                    Your recipe
-                  </p>
-                  <h2 className="max-w-xl font-serif text-3xl leading-tight sm:text-[38px]">
-                    {recipe.name}
-                  </h2>
-                </div>
+            <form onSubmit={handleSubmit} className="mt-10 max-w-lg">
+              <label
+                htmlFor="dish"
+                className="mb-2 block font-mono text-[10px] uppercase tracking-[0.16em] text-[#62685d]"
+              >
+                I feel like making...
+              </label>
+              <div className="flex min-h-15 items-stretch border-b-2 border-(--ink) focus-within:border-(--tomato)">
+                <input
+                  id="dish"
+                  value={dish}
+                  onChange={(event) => setDish(event.target.value)}
+                  placeholder="e.g. a bright lunch with tomatoes"
+                  maxLength={160}
+                  required
+                  className="min-w-0 flex-1 bg-transparent py-3 pr-3 font-serif text-[19px] outline-none placeholder:text-[#a6a69b]"
+                />
                 <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="border border-[#20251f]/20 px-3 py-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[#62685d] transition hover:border-(--leaf) hover:text-(--leaf)"
+                  type="submit"
+                  disabled={!dish.trim() || isGenerating}
+                  className="my-2 flex shrink-0 items-center gap-3 bg-(--tomato) px-4 font-mono text-[10px] uppercase tracking-[0.12em] text-white transition-colors hover:bg-[#a8402e] disabled:cursor-not-allowed disabled:bg-[#c8c4b8] sm:px-5"
                 >
-                  Print recipe
+                  {isGenerating ? "Working" : "Make it"}
+                  <span aria-hidden="true">{isGenerating ? "···" : "↗"}</span>
                 </button>
               </div>
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <span className="mr-1 font-mono text-[9px] uppercase tracking-[0.13em] text-[#8b8d82]">
+                  Try
+                </span>
+                {ideas.map((idea) => (
+                  <button
+                    key={idea}
+                    type="button"
+                    onClick={() => setDish(idea)}
+                    className="rounded-full border border-[#20251f]/20 px-3 py-1.5 text-xs text-[#545a50] transition hover:border-(--leaf) hover:text-(--leaf)"
+                  >
+                    {idea}
+                  </button>
+                ))}
+              </div>
+            </form>
 
-              <div className="grid gap-8 pt-6 sm:grid-cols-[0.72fr_1.28fr] sm:gap-10">
-                <div>
-                  <div className="mb-4 flex items-baseline justify-between">
-                    <h3 className="font-serif text-xl italic">Gather</h3>
-                    <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#92948a]">
-                      {recipe.ingredients.length} things
-                    </span>
+            {error && (
+              <div
+                role="alert"
+                className="mt-6 flex items-start gap-3 border-l-2 border-(--tomato) bg-[#eadfd3] px-4 py-3 text-sm text-[#75392d]"
+              >
+                <span
+                  aria-hidden="true"
+                  className="font-serif text-lg leading-5"
+                >
+                  !
+                </span>
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div className="mt-12 flex items-center gap-4 border-t border-[#20251f]/15 pt-5 text-[11px] text-[#7d8176]">
+              <span className="font-serif text-lg italic text-(--leaf)">
+                01
+              </span>
+              <span>Made around your ingredients</span>
+              <span className="h-px flex-1 bg-[#20251f]/15" />
+              <span className="font-serif text-lg italic text-(--leaf)">
+                02
+              </span>
+              <span>Ready for your kitchen</span>
+            </div>
+          </section>
+
+          <section
+            aria-label="Recipe result"
+            aria-live="polite"
+            className="rise-in overflow-hidden border border-[#20251f]/10 bg-[#fffdf7] shadow-[0_18px_50px_rgba(44,47,37,0.08)] [animation-delay:100ms]"
+          >
+            <div
+              className="relative min-h-55 overflow-hidden bg-[#536451] bg-cover bg-center sm:min-h-70"
+              style={{
+                backgroundImage:
+                  'url("https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=1500&q=85")',
+              }}
+            >
+              <div className="absolute inset-0 bg-[#17251d]/35" />
+              <div className="absolute left-5 top-5 flex items-center gap-2 border border-white/45 bg-[#20251f]/20 px-3 py-2 font-mono text-[9px] uppercase tracking-[0.17em] text-white backdrop-blur-sm sm:left-7 sm:top-7">
+                <span className="size-1.5 rounded-full bg-(--butter)" />
+                The everyday table
+              </div>
+              <p className="absolute bottom-5 left-5 max-w-md font-serif text-3xl italic leading-tight text-white sm:bottom-7 sm:left-7 sm:text-[40px]">
+                A little inspiration
+                <br />
+                for what’s next.
+              </p>
+              <span className="absolute bottom-6 right-6 hidden font-mono text-[9px] uppercase tracking-[0.18em] text-white/80 sm:block">
+                Good things, made simply
+              </span>
+            </div>
+
+            {isGenerating ? (
+              <div className="flex min-h-70 flex-col items-center justify-center px-6 py-12 text-center">
+                <span className="mb-5 grid size-12 place-items-center rounded-full border border-(--leaf)/30 text-(--leaf)">
+                  <span className="animate-spin font-serif text-2xl">✳</span>
+                </span>
+                <p className="font-serif text-2xl italic">
+                  Finding the good bits...
+                </p>
+                <p className="mt-2 text-sm text-[#85877d]">
+                  Putting your recipe together
+                </p>
+              </div>
+            ) : recipe ? (
+              <div className="rise-in p-5 sm:p-8">
+                <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#20251f]/15 pb-5">
+                  <div>
+                    <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.18em] text-(--tomato)">
+                      Your recipe
+                    </p>
+                    <h2 className="max-w-xl font-serif text-3xl leading-tight sm:text-[38px]">
+                      {recipe.name}
+                    </h2>
                   </div>
-                  <ul className="space-y-3">
-                    {recipe.ingredients.map((ingredient, index) => {
-                      const isChecked = checkedIngredients.includes(index);
-                      return (
-                        <li key={`${ingredient.name}-${index}`}>
-                          <label className="flex cursor-pointer items-start gap-3 text-sm leading-5">
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() =>
-                                setCheckedIngredients((current) =>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="border border-[#20251f]/20 px-3 py-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[#62685d] transition hover:border-(--leaf) hover:text-(--leaf)"
+                  >
+                    Print recipe
+                  </button>
+                </div>
+
+                <div className="grid gap-8 pt-6 sm:grid-cols-[0.72fr_1.28fr] sm:gap-10">
+                  <div>
+                    <div className="mb-4 flex items-baseline justify-between">
+                      <h3 className="font-serif text-xl italic">Gather</h3>
+                      <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#92948a]">
+                        {recipe.ingredients.length} things
+                      </span>
+                    </div>
+                    <ul className="space-y-3">
+                      {recipe.ingredients.map((ingredient, index) => {
+                        const isChecked = checkedIngredients.includes(index);
+                        return (
+                          <li key={`${ingredient.name}-${index}`}>
+                            <label className="flex cursor-pointer items-start gap-3 text-sm leading-5">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() =>
+                                  setCheckedIngredients((current) =>
+                                    toggleNumber(current, index),
+                                  )
+                                }
+                                className="mt-1 size-3.5 accent-(--leaf)"
+                              />
+                              <span
+                                className={
+                                  isChecked
+                                    ? "text-[#9a9b91] line-through"
+                                    : "text-[#42483f]"
+                                }
+                              >
+                                <span className="font-medium">
+                                  {ingredient.name}
+                                </span>
+                                <span className="text-[#85877d]">
+                                  {" "}
+                                  · {ingredient.amount}
+                                </span>
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <div className="mb-4 flex items-baseline justify-between">
+                      <h3 className="font-serif text-xl italic">Make it</h3>
+                      <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#92948a]">
+                        {completedSteps.length}/{recipe.steps.length} done
+                      </span>
+                    </div>
+                    <ol className="space-y-4">
+                      {recipe.steps.map((step, index) => {
+                        const isComplete = completedSteps.includes(index);
+                        return (
+                          <li key={`${step}-${index}`}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCompletedSteps((current) =>
                                   toggleNumber(current, index),
                                 )
                               }
-                              className="mt-1 size-3.5 accent-(--leaf)"
-                            />
-                            <span
-                              className={
-                                isChecked
-                                  ? "text-[#9a9b91] line-through"
-                                  : "text-[#42483f]"
-                              }
+                              className="group flex w-full items-start gap-3 text-left"
+                              aria-pressed={isComplete}
                             >
-                              <span className="font-medium">
-                                {ingredient.name}
+                              <span
+                                className={`grid size-6 shrink-0 place-items-center rounded-full border font-mono text-[9px] transition ${isComplete ? "border-(--leaf) bg-(--leaf) text-white" : "border-[#20251f]/20 text-[#73786d] group-hover:border-(--leaf) group-hover:text-(--leaf)"}`}
+                              >
+                                {isComplete
+                                  ? "✓"
+                                  : String(index + 1).padStart(2, "0")}
                               </span>
-                              <span className="text-[#85877d]">
-                                {" "}
-                                · {ingredient.amount}
+                              <span
+                                className={`pt-0.5 text-sm leading-6 ${isComplete ? "text-[#96988e] line-through" : "text-[#42483f]"}`}
+                              >
+                                {step}
                               </span>
-                            </span>
-                          </label>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-
-                <div>
-                  <div className="mb-4 flex items-baseline justify-between">
-                    <h3 className="font-serif text-xl italic">Make it</h3>
-                    <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#92948a]">
-                      {completedSteps.length}/{recipe.steps.length} done
-                    </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ol>
                   </div>
-                  <ol className="space-y-4">
-                    {recipe.steps.map((step, index) => {
-                      const isComplete = completedSteps.includes(index);
-                      return (
-                        <li key={`${step}-${index}`}>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setCompletedSteps((current) =>
-                                toggleNumber(current, index),
-                              )
-                            }
-                            className="group flex w-full items-start gap-3 text-left"
-                            aria-pressed={isComplete}
-                          >
-                            <span
-                              className={`grid size-6 shrink-0 place-items-center rounded-full border font-mono text-[9px] transition ${isComplete ? "border-(--leaf) bg-(--leaf) text-white" : "border-[#20251f]/20 text-[#73786d] group-hover:border-(--leaf) group-hover:text-(--leaf)"}`}
-                            >
-                              {isComplete
-                                ? "✓"
-                                : String(index + 1).padStart(2, "0")}
-                            </span>
-                            <span
-                              className={`pt-0.5 text-sm leading-6 ${isComplete ? "text-[#96988e] line-through" : "text-[#42483f]"}`}
-                            >
-                              {step}
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ol>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="flex min-h-62.5 flex-col justify-center px-6 py-9 sm:px-10">
-              <span className="mb-4 font-serif text-3xl italic text-(--leaf)">
-                Your page is open.
-              </span>
-              <p className="max-w-md text-sm leading-6 text-[#73776d]">
-                Tell us what you’re in the mood for and your recipe will land
-                here, with ingredients to gather and steps you can tick off as
-                you go.
-              </p>
-              <div className="mt-7 flex items-center gap-3 font-mono text-[9px] uppercase tracking-[0.16em] text-[#989a90]">
-                <span className="h-px w-7 bg-(--butter)" />A fresh page, every
-                time
+            ) : (
+              <div className="flex min-h-62.5 flex-col justify-center px-6 py-9 sm:px-10">
+                <span className="mb-4 font-serif text-3xl italic text-(--leaf)">
+                  Your page is open.
+                </span>
+                <p className="max-w-md text-sm leading-6 text-[#73776d]">
+                  Tell us what you’re in the mood for and your recipe will land
+                  here, with ingredients to gather and steps you can tick off as
+                  you go.
+                </p>
+                <div className="mt-7 flex items-center gap-3 font-mono text-[9px] uppercase tracking-[0.16em] text-[#989a90]">
+                  <span className="h-px w-7 bg-(--butter)" />A fresh page, every
+                  time
+                </div>
               </div>
-            </div>
-          )}
-        </section>
-      </div>
-
-      <footer className="border-t border-[#20251f]/15 px-5 sm:px-8">
-        <div className="mx-auto flex min-h-14 max-w-330 flex-wrap items-center justify-between gap-2 py-3 font-mono text-[9px] uppercase tracking-[0.14em] text-[#898c81]">
-          <span>Made for the pleasure of a good meal</span>
-          <span>Take your time · Taste as you go</span>
+            )}
+          </section>
         </div>
-      </footer>
-    </main>
+
+        <footer className="border-t border-[#20251f]/15 px-5 sm:px-8">
+          <div className="mx-auto flex min-h-14 max-w-330 flex-wrap items-center justify-between gap-2 py-3 font-mono text-[9px] uppercase tracking-[0.14em] text-[#898c81]">
+            <span>Made for the pleasure of a good meal</span>
+            <span>Take your time · Taste as you go</span>
+          </div>
+        </footer>
+      </main>
+    </div>
   );
 }
