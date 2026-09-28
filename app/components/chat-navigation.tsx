@@ -7,7 +7,7 @@ type ChatNavigationProps = {
 const destinations = [
   {
     id: "main",
-    href: "/",
+    href: "/chat",
     number: "01",
     label: "Main chat",
     detail: "Open conversation",
@@ -25,7 +25,7 @@ export default function ChatNavigation({ active }: ChatNavigationProps) {
   return (
     <aside className="border-b border-[#20251f]/15 bg-[#eeebdf] px-5 pb-4 pt-4 md:fixed md:inset-y-0 md:left-0 md:z-30 md:flex md:w-57 md:flex-col md:border-b-0 md:border-r md:px-6 md:py-7">
       <Link
-        href="/"
+        href="/chat"
         className="page-enter flex w-fit items-center gap-3"
         aria-label="Relay AI home"
       >
