@@ -26,7 +26,7 @@ export default function ChatNavigation({ active }: ChatNavigationProps) {
     <aside className="border-b border-[#20251f]/15 bg-[#eeebdf] px-5 pb-4 pt-4 md:fixed md:inset-y-0 md:left-0 md:z-30 md:flex md:w-57 md:flex-col md:border-b-0 md:border-r md:px-6 md:py-7">
       <Link
         href="/"
-        className="flex w-fit items-center gap-3"
+        className="page-enter flex w-fit items-center gap-3"
         aria-label="Relay AI home"
       >
         <span className="grid size-9 place-items-center rounded-full bg-(--tomato) font-serif text-xl italic text-white">
@@ -52,7 +52,7 @@ export default function ChatNavigation({ active }: ChatNavigationProps) {
               key={destination.id}
               href={destination.href}
               aria-current={isActive ? "page" : undefined}
-              className={`group flex min-h-11 flex-1 items-center gap-3 border px-3 py-2.5 transition-colors md:flex-none md:gap-3.5 ${
+              className={`lift-on-hover group flex min-h-11 flex-1 items-center gap-3 border px-3 py-2.5 transition-colors md:flex-none md:gap-3.5 ${
                 isActive
                   ? "border-[#426047]/20 bg-[#e2e7dc] text-[#29452f]"
                   : "border-transparent text-[#70756b] hover:border-[#20251f]/10 hover:bg-white/50 hover:text-(--ink)"
