@@ -18,6 +18,8 @@ export async function POST(req: Request) {
   const result = streamText({
     model: openrouter("openrouter/free"),
     messages: await convertToModelMessages(messages),
+    system:
+      "you are a helpful chat assistant, keep responses under 3 sentences and focus on the practical examples",
   });
 
   result.usage.then((usage) => {
