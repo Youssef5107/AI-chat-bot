@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 type ChatNavigationProps = {
-  active: "main" | "recipe";
+  active: "main" | "recipe" | "images";
 };
 
 const destinations = [
@@ -18,6 +18,13 @@ const destinations = [
     number: "02",
     label: "Recipe chat",
     detail: "Cook something good",
+  },
+  {
+    id: "images",
+    href: "/images",
+    number: "03",
+    label: "Image studio",
+    detail: "Make a new image",
   },
 ] as const;
 
@@ -81,11 +88,9 @@ export default function ChatNavigation({ active }: ChatNavigationProps) {
 
       <div className="mt-auto hidden border-t border-[#20251f]/15 pt-4 md:block">
         <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#85897e]">
-          One assistant, two spaces
+          One assistant, three spaces
         </p>
-        <p className="mt-1 text-xs text-[#a0a195]">
-          More tools can join later.
-        </p>
+        <p className="mt-1 text-xs text-[#a0a195]">Ideas, recipes, images.</p>
       </div>
     </aside>
   );
