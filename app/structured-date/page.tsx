@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useRef } from "react";
+import { useChat } from "@ai-sdk/react";
+import { TextStreamChatTransport, convertFileListToFileUIParts } from "ai";
+import type { FileUIPart } from "ai";
 import ChatNavigation from "../components/chat-navigation";
 
 type Ingredient = {
@@ -19,6 +22,14 @@ const ideas = ["lemony pasta", "crispy chickpeas", "mushrooms & rice"];
 const MAX_FILES = 4;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_FILE_BYTES = 12 * 1024 * 1024;
+const recipeTransport = new TextStreamChatTransport({
+  api: "/api/structured-data",
+});
+
+type SelectedFile = {
+  file: File;
+  part: FileUIPart;
+};
 
 function isSupportedFile(file: File) {
   return (
@@ -57,63 +68,74 @@ function isRecipeResponse(value: unknown): value is { recipe: Recipe } {
 }
 
 export default function StructuredDatePage() {
+  const {
+    sendMessage,
+    status,
+    error: chatError,
+    clearError,
+  } = useChat({
+    transport: recipeTransport,
+    onFinish: ({ message, isError }) => {
+      if (isError) return;
+      const text = message.parts
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("");
+
+      try {
+        const payload: unknown = JSON.parse(text);
+        if (!isRecipeResponse(payload)) {
+          throw new Error("The recipe came back in an unexpected format.");
+        }
+        setRecipe(payload.recipe);
+        setFiles([]);
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "The recipe could not be read.",
+        );
+      }
+    },
+  });
   const [dish, setDish] = useState("");
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [checkedIngredients, setCheckedIngredients] = useState<number[]>([]);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<SelectedFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isGenerating = status === "submitted" || status === "streaming";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const requestDish = dish.trim();
     if ((!requestDish && files.length === 0) || isGenerating) return;
 
-    setIsGenerating(true);
     setError(null);
     setRecipe(null);
     setCheckedIngredients([]);
     setCompletedSteps([]);
 
     try {
-      const formData = new FormData();
-      formData.append("dish", requestDish);
-      files.forEach((file) => formData.append("files", file));
-      const response = await fetch("/api/structured-data", {
-        method: "POST",
-        body: formData,
+      await sendMessage({
+        text: requestDish,
+        files: files.map(({ part }) => part),
       });
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        throw new Error(payload?.error || "We couldn't make that recipe.");
-      }
-
-      const payload: unknown = JSON.parse(await response.text());
-      if (!isRecipeResponse(payload)) {
-        throw new Error("The recipe came back in an unexpected format.");
-      }
-
-      setRecipe(payload.recipe);
-      setFiles([]);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
           ? caughtError.message
           : "Something went wrong. Please try again.",
       );
-    } finally {
-      setIsGenerating(false);
     }
   }
 
-  function handleFilesSelected(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFilesSelected(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
     const selected = Array.from(event.target.files ?? []);
-    const nextFiles = [...files, ...selected];
+    const nextFiles = [...files.map(({ file }) => file), ...selected];
     const totalBytes = nextFiles.reduce((total, file) => total + file.size, 0);
 
     if (nextFiles.length > MAX_FILES) {
@@ -125,8 +147,18 @@ export default function StructuredDatePage() {
     } else if (totalBytes > MAX_TOTAL_FILE_BYTES) {
       setError("Attachments must total 12 MB or less.");
     } else {
-      setFiles(nextFiles);
-      setError(null);
+      try {
+        const parts = await convertFileListToFileUIParts(
+          event.target.files ?? undefined,
+        );
+        setFiles((current) => [
+          ...current,
+          ...selected.map((file, index) => ({ file, part: parts[index] })),
+        ]);
+        setError(null);
+      } catch {
+        setError("Could not read one or more selected files.");
+      }
     }
 
     event.target.value = "";
@@ -205,10 +237,10 @@ export default function StructuredDatePage() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   {files.map((file, index) => (
                     <span
-                      key={`${file.name}-${file.lastModified}-${index}`}
+                      key={`${file.file.name}-${file.file.lastModified}-${index}`}
                       className="inline-flex max-w-full items-center gap-2 border border-[#20251f]/15 bg-[#fffdf7] px-3 py-1.5 text-xs text-[#565c51]"
                     >
-                      <span className="truncate">{file.name}</span>
+                      <span className="truncate">{file.file.name}</span>
                       <button
                         type="button"
                         onClick={() =>
@@ -218,7 +250,7 @@ export default function StructuredDatePage() {
                             ),
                           )
                         }
-                        aria-label={`Remove ${file.name}`}
+                        aria-label={`Remove ${file.file.name}`}
                         className="font-mono text-sm text-[#929387] hover:text-(--tomato)"
                       >
                         ×
@@ -247,7 +279,7 @@ export default function StructuredDatePage() {
               </p>
             </form>
 
-            {error && (
+            {(error || chatError) && (
               <div
                 role="alert"
                 className="mt-6 flex items-start gap-3 border-l-2 border-(--tomato) bg-[#eadfd3] px-4 py-3 text-sm text-[#75392d]"
@@ -258,7 +290,16 @@ export default function StructuredDatePage() {
                 >
                   !
                 </span>
-                <span>{error}</span>
+                <span>{error || chatError?.message}</span>
+                {chatError && (
+                  <button
+                    type="button"
+                    onClick={clearError}
+                    className="ml-auto font-mono text-[10px] uppercase tracking-[0.12em] underline underline-offset-4"
+                  >
+                    Dismiss
+                  </button>
+                )}
               </div>
             )}
 
