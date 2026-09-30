@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRef } from "react";
 import ChatNavigation from "../components/chat-navigation";
 
 type Ingredient = {
@@ -15,6 +16,17 @@ type Recipe = {
 };
 
 const ideas = ["lemony pasta", "crispy chickpeas", "mushrooms & rice"];
+const MAX_FILES = 4;
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
+const MAX_TOTAL_FILE_BYTES = 12 * 1024 * 1024;
+
+function isSupportedFile(file: File) {
+  return (
+    file.type.startsWith("image/") ||
+    file.type.startsWith("text/") ||
+    file.type === "application/pdf"
+  );
+}
 
 function isRecipeResponse(value: unknown): value is { recipe: Recipe } {
   if (!value || typeof value !== "object" || !("recipe" in value)) {
@@ -51,11 +63,13 @@ export default function StructuredDatePage() {
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const requestDish = dish.trim();
-    if (!requestDish || isGenerating) return;
+    if ((!requestDish && files.length === 0) || isGenerating) return;
 
     setIsGenerating(true);
     setError(null);
@@ -64,10 +78,12 @@ export default function StructuredDatePage() {
     setCompletedSteps([]);
 
     try {
+      const formData = new FormData();
+      formData.append("dish", requestDish);
+      files.forEach((file) => formData.append("files", file));
       const response = await fetch("/api/structured-data", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dish: requestDish }),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -83,6 +99,7 @@ export default function StructuredDatePage() {
       }
 
       setRecipe(payload.recipe);
+      setFiles([]);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -92,6 +109,27 @@ export default function StructuredDatePage() {
     } finally {
       setIsGenerating(false);
     }
+  }
+
+  function handleFilesSelected(event: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files ?? []);
+    const nextFiles = [...files, ...selected];
+    const totalBytes = nextFiles.reduce((total, file) => total + file.size, 0);
+
+    if (nextFiles.length > MAX_FILES) {
+      setError(`Attach up to ${MAX_FILES} files per recipe.`);
+    } else if (selected.some((file) => !isSupportedFile(file))) {
+      setError("Attach images, PDFs, or text-based files.");
+    } else if (selected.some((file) => file.size > MAX_FILE_BYTES)) {
+      setError("Each file must be 8 MB or smaller.");
+    } else if (totalBytes > MAX_TOTAL_FILE_BYTES) {
+      setError("Attachments must total 12 MB or less.");
+    } else {
+      setFiles(nextFiles);
+      setError(null);
+    }
+
+    event.target.value = "";
   }
 
   function toggleNumber(values: number[], value: number) {
@@ -119,6 +157,14 @@ export default function StructuredDatePage() {
             </p>
 
             <form onSubmit={handleSubmit} className="mt-10 max-w-lg">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,application/pdf,text/*,.csv,.md"
+                onChange={handleFilesSelected}
+                className="hidden"
+              />
               <label
                 htmlFor="dish"
                 className="mb-2 block font-mono text-[10px] uppercase tracking-[0.16em] text-[#62685d]"
@@ -132,18 +178,55 @@ export default function StructuredDatePage() {
                   onChange={(event) => setDish(event.target.value)}
                   placeholder="e.g. a bright lunch with tomatoes"
                   maxLength={160}
-                  required
                   className="min-w-0 flex-1 bg-transparent py-3 pr-3 font-serif text-[19px] outline-none placeholder:text-[#a6a69b]"
                 />
                 <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isGenerating || files.length >= MAX_FILES}
+                  aria-label="Attach images or files"
+                  title="Attach images or files"
+                  className="my-2 mr-2 grid size-10 shrink-0 place-items-center border border-[#20251f]/15 text-lg text-(--leaf) transition hover:border-(--leaf) hover:bg-[#e8e9de] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <span aria-hidden="true">＋</span>
+                </button>
+                <button
                   type="submit"
-                  disabled={!dish.trim() || isGenerating}
+                  disabled={
+                    (!dish.trim() && files.length === 0) || isGenerating
+                  }
                   className="my-2 flex shrink-0 items-center gap-3 bg-(--tomato) px-4 font-mono text-[10px] uppercase tracking-[0.12em] text-white transition-colors hover:bg-[#a8402e] disabled:cursor-not-allowed disabled:bg-[#c8c4b8] sm:px-5"
                 >
                   {isGenerating ? "Working" : "Make it"}
                   <span aria-hidden="true">{isGenerating ? "···" : "↗"}</span>
                 </button>
               </div>
+              {files.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {files.map((file, index) => (
+                    <span
+                      key={`${file.name}-${file.lastModified}-${index}`}
+                      className="inline-flex max-w-full items-center gap-2 border border-[#20251f]/15 bg-[#fffdf7] px-3 py-1.5 text-xs text-[#565c51]"
+                    >
+                      <span className="truncate">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFiles((current) =>
+                            current.filter(
+                              (_, fileIndex) => fileIndex !== index,
+                            ),
+                          )
+                        }
+                        aria-label={`Remove ${file.name}`}
+                        className="font-mono text-sm text-[#929387] hover:text-(--tomato)"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="mt-5 flex flex-wrap items-center gap-2">
                 <span className="mr-1 font-mono text-[9px] uppercase tracking-[0.13em] text-[#8b8d82]">
                   Try
@@ -159,6 +242,9 @@ export default function StructuredDatePage() {
                   </button>
                 ))}
               </div>
+              <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.12em] text-[#929387]">
+                Images, PDFs, text · Up to 4 files / 12 MB
+              </p>
             </form>
 
             {error && (

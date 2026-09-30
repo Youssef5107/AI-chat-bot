@@ -2,6 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState } from "react";
+import type { FileUIPart } from "ai";
 import ChatNavigation from "../components/chat-navigation";
 
 const starterPrompts = [
@@ -10,10 +11,46 @@ const starterPrompts = [
   "Make a plan for the week ahead",
 ];
 
+const MAX_FILES = 4;
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
+const MAX_TOTAL_FILE_BYTES = 12 * 1024 * 1024;
+
+function fileToUIPart(file: File): Promise<FileUIPart> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error(`Could not read ${file.name}.`));
+        return;
+      }
+
+      resolve({
+        type: "file",
+        filename: file.name,
+        mediaType: file.type || "application/octet-stream",
+        url: reader.result,
+      });
+    };
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+    reader.readAsDataURL(file);
+  });
+}
+
+function isSupportedFile(file: File) {
+  return (
+    file.type.startsWith("image/") ||
+    file.type.startsWith("text/") ||
+    file.type === "application/pdf"
+  );
+}
+
 export default function Home() {
   const { messages, sendMessage, status, stop, error, regenerate, clearError } =
     useChat();
   const [input, setInput] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const isStreaming = status === "streaming" || status === "submitted";
@@ -25,12 +62,46 @@ export default function Home() {
     });
   }, [messages, status]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
-    if (!text || isStreaming) return;
-    sendMessage({ text });
+    if ((!text && files.length === 0) || isStreaming) return;
+
+    try {
+      const fileParts = await Promise.all(files.map(fileToUIPart));
+      await sendMessage({ text, files: fileParts });
+      setFiles([]);
+      setUploadError(null);
+    } catch (caughtError) {
+      setUploadError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Could not attach those files.",
+      );
+      return;
+    }
     setInput("");
+  };
+
+  const handleFilesSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(event.target.files ?? []);
+    const nextFiles = [...files, ...selected];
+    const totalBytes = nextFiles.reduce((total, file) => total + file.size, 0);
+
+    if (nextFiles.length > MAX_FILES) {
+      setUploadError(`Attach up to ${MAX_FILES} files per message.`);
+    } else if (selected.some((file) => !isSupportedFile(file))) {
+      setUploadError("Choose images, PDFs, or text-based files.");
+    } else if (selected.some((file) => file.size > MAX_FILE_BYTES)) {
+      setUploadError("Each file must be 8 MB or smaller.");
+    } else if (totalBytes > MAX_TOTAL_FILE_BYTES) {
+      setUploadError("Attachments must total 12 MB or less.");
+    } else {
+      setFiles(nextFiles);
+      setUploadError(null);
+    }
+
+    event.target.value = "";
   };
 
   return (
@@ -114,6 +185,9 @@ export default function Home() {
                 .filter((part) => part.type === "text")
                 .map((part) => part.text)
                 .join("");
+              const attachments = message.parts.filter(
+                (part) => part.type === "file",
+              );
               const isUser = message.role === "user";
 
               return (
@@ -139,6 +213,29 @@ export default function Home() {
                           : "border-l-2 border-(--leaf) bg-[#fffdf7] px-5 py-4 text-[#42483f] shadow-[0_8px_24px_rgba(44,47,37,0.04)] sm:px-6"
                       }`}
                     >
+                      {attachments.length > 0 && (
+                        <div className="mb-3 flex flex-wrap gap-2">
+                          {attachments.map((part, index) =>
+                            part.mediaType?.startsWith("image/") ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={`${part.filename}-${index}`}
+                                src={part.url}
+                                alt={part.filename || "Attached image"}
+                                className="max-h-48 max-w-48 border border-[#20251f]/10 object-contain"
+                              />
+                            ) : (
+                              <span
+                                key={`${part.filename}-${index}`}
+                                className="inline-flex items-center gap-2 border border-[#20251f]/15 bg-white/60 px-3 py-2 font-mono text-[10px] text-[#565c51]"
+                              >
+                                <span aria-hidden="true">↗</span>
+                                {part.filename || "Attached file"}
+                              </span>
+                            ),
+                          )}
+                        </div>
+                      )}
                       {text || (
                         <span
                           className="inline-flex gap-1.5 py-2"
@@ -157,26 +254,34 @@ export default function Home() {
           </div>
         </section>
 
-        {error && (
+        {(error || uploadError) && (
           <div
             role="alert"
             className="shrink-0 border-t border-[#c84f38]/20 bg-[#f0e2d7] px-5 py-3 sm:px-8"
           >
             <div className="mx-auto flex max-w-250 flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-[#75392d]">
-                {error.message || "Something went wrong. Please try again."}
+                {uploadError ||
+                  error?.message ||
+                  "Something went wrong. Please try again."}
               </p>
               <div className="flex shrink-0 items-center gap-4">
                 <button
                   type="button"
-                  onClick={() => void regenerate()}
+                  onClick={() => {
+                    setUploadError(null);
+                    if (error) void regenerate();
+                  }}
                   className="font-mono text-[10px] uppercase tracking-[0.13em] text-(--leaf) underline underline-offset-4 transition hover:text-(--tomato)"
                 >
                   Retry
                 </button>
                 <button
                   type="button"
-                  onClick={clearError}
+                  onClick={() => {
+                    setUploadError(null);
+                    clearError();
+                  }}
                   className="font-mono text-[10px] uppercase tracking-[0.13em] text-[#777b71] transition hover:text-(--ink)"
                 >
                   Dismiss
@@ -191,6 +296,24 @@ export default function Home() {
             onSubmit={handleSubmit}
             className="composer-focus mx-auto flex max-w-250 items-end gap-3 border border-[#20251f]/20 bg-[#fffdf7] p-2 pl-4 shadow-[0_8px_24px_rgba(44,47,37,0.05)]"
           >
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,application/pdf,text/*,.csv,.md"
+              onChange={handleFilesSelected}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isStreaming || files.length >= MAX_FILES}
+              aria-label="Attach images or files"
+              title="Attach images or files"
+              className="mb-1 grid size-9 shrink-0 place-items-center border border-[#20251f]/15 text-lg text-(--leaf) transition hover:border-(--leaf) hover:bg-[#e8e9de] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <span aria-hidden="true">＋</span>
+            </button>
             <label htmlFor="message" className="sr-only">
               Write your message
             </label>
@@ -201,7 +324,7 @@ export default function Home() {
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
-                  handleSubmit(event);
+                  void handleSubmit(event);
                 }
               }}
               placeholder="Write your message..."
@@ -219,15 +342,48 @@ export default function Home() {
             ) : (
               <button
                 type="submit"
-                disabled={!input.trim()}
+                disabled={!input.trim() && files.length === 0}
                 className="shrink-0 bg-(--leaf) px-4 py-3 font-mono text-[10px] uppercase tracking-[0.13em] text-white transition hover:bg-[#334c38] disabled:cursor-not-allowed disabled:bg-[#c8c7bb]"
               >
                 Send <span aria-hidden="true">↗</span>
               </button>
             )}
           </form>
+          {files.length > 0 && (
+            <div className="mx-auto mt-3 flex max-w-250 flex-wrap gap-2">
+              {files.map((file, index) => (
+                <span
+                  key={`${file.name}-${file.lastModified}-${index}`}
+                  className="inline-flex max-w-full items-center gap-2 border border-[#20251f]/15 bg-[#fffdf7] px-3 py-1.5 text-xs text-[#565c51]"
+                >
+                  <span className="truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFiles((current) =>
+                        current.filter((_, fileIndex) => fileIndex !== index),
+                      )
+                    }
+                    aria-label={`Remove ${file.name}`}
+                    className="font-mono text-sm text-[#929387] hover:text-(--tomato)"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          {uploadError && (
+            <p
+              role="alert"
+              className="mx-auto mt-2 max-w-250 text-sm text-[#75392d]"
+            >
+              {uploadError}
+            </p>
+          )}
           <p className="mx-auto mt-2 max-w-250 font-mono text-[8px] uppercase tracking-[0.12em] text-[#9a9c92]">
-            Enter to send · Shift + Enter for a new line
+            Images, PDFs, text · Up to 4 files / 12 MB · Enter to send · Shift +
+            Enter for a new line
           </p>
         </footer>
       </main>
