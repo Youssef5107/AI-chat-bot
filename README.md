@@ -1,5 +1,17 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Image Generation
+
+The `/images` page uses a local Stable Diffusion WebUI-compatible API. One option is AUTOMATIC1111 WebUI; start it with its API enabled (`--api`) and a model loaded. By default, the app connects to `http://127.0.0.1:7860`.
+
+To use a different server, add this to `.env.local` and restart the app:
+
+```env
+STABLE_DIFFUSION_API_URL=http://127.0.0.1:7860
+```
+
+The configured server must be reachable from the Next.js server and expose `POST /sdapi/v1/txt2img`. Local generation has no per-image API charge, but requires compatible hardware and a downloaded model. A deployed app needs a Stable Diffusion API endpoint reachable from its server environment.
+
 ## Getting Started
 
 First, run the development server:
