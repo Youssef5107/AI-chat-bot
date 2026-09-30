@@ -1,83 +1,152 @@
-import { streamObject } from "ai";
+import { convertToModelMessages, streamObject } from "ai";
+import type { UIMessage } from "ai";
 import { openrouter } from "@openrouter/ai-sdk-provider";
 import { recipeSchema } from "./schema";
 
 export const maxDuration = 60;
 
+const MAX_REQUEST_BYTES = 32 * 1024 * 1024;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_FILE_BYTES = 12 * 1024 * 1024;
 const MAX_FILES = 4;
 
-function isSupportedFile(file: File) {
+function isSupportedMediaType(mediaType: string) {
   return (
-    file.type.startsWith("image/") ||
-    file.type.startsWith("text/") ||
-    file.type === "application/pdf"
+    mediaType.startsWith("image/") ||
+    mediaType.startsWith("text/") ||
+    mediaType === "application/pdf"
   );
 }
 
-export async function POST(req: Request) {
-  try {
-    const formData = await req.formData();
-    const dishValue = formData.get("dish");
-    const dish = typeof dishValue === "string" ? dishValue.trim() : "";
-    const files = formData
-      .getAll("files")
-      .filter(
-        (value): value is File => value instanceof File && value.size > 0,
-      );
+function isFilePart(
+  part: unknown,
+): part is { type: "file"; mediaType?: unknown; url?: unknown } {
+  return (
+    typeof part === "object" &&
+    part !== null &&
+    "type" in part &&
+    part.type === "file"
+  );
+}
 
-    if (!dish && files.length === 0) {
-      return Response.json(
-        { error: "Describe a dish or attach an image or file." },
-        { status: 400 },
-      );
-    }
-    if (files.length > MAX_FILES) {
-      return Response.json(
-        { error: `Attach up to ${MAX_FILES} files per recipe.` },
-        { status: 400 },
-      );
-    }
-    if (files.some((file) => !isSupportedFile(file))) {
+function getDataUrlSize(url: string) {
+  const match = /^data:([^,]*?),([\s\S]*)$/.exec(url);
+  if (!match) return null;
+
+  const [, metadata, payload] = match;
+  if (metadata.endsWith(";base64")) {
+    const padding = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0;
+    return Math.floor((payload.length * 3) / 4) - padding;
+  }
+
+  try {
+    return new TextEncoder().encode(decodeURIComponent(payload)).byteLength;
+  } catch {
+    return null;
+  }
+}
+
+export async function POST(req: Request) {
+  const contentLength = Number(req.headers.get("content-length") ?? 0);
+  if (contentLength > MAX_REQUEST_BYTES) {
+    return Response.json(
+      {
+        error:
+          "The recipe request is too large. Reduce the conversation attachments and try again.",
+      },
+      { status: 413 },
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json(
+      { error: "The recipe chat request was not valid JSON." },
+      { status: 400 },
+    );
+  }
+
+  if (
+    !body ||
+    typeof body !== "object" ||
+    !("messages" in body) ||
+    !Array.isArray(body.messages) ||
+    body.messages.length === 0
+  ) {
+    return Response.json(
+      { error: "The recipe chat request must include messages." },
+      { status: 400 },
+    );
+  }
+
+  const messages = body.messages as unknown[];
+  const latestMessage = messages[messages.length - 1];
+  const latestParts: unknown[] =
+    latestMessage &&
+    typeof latestMessage === "object" &&
+    "parts" in latestMessage &&
+    Array.isArray(latestMessage.parts)
+      ? latestMessage.parts
+      : [];
+  const latestFiles = latestParts.filter(isFilePart);
+
+  if (latestFiles.length > MAX_FILES) {
+    return Response.json(
+      { error: `Attach up to ${MAX_FILES} files per recipe.` },
+      { status: 400 },
+    );
+  }
+
+  let totalFileBytes = 0;
+  for (const part of latestFiles) {
+    if (
+      typeof part.mediaType !== "string" ||
+      !isSupportedMediaType(part.mediaType)
+    ) {
       return Response.json(
         { error: "Attach images, PDFs, or text-based files." },
         { status: 415 },
       );
     }
-    if (files.some((file) => file.size > MAX_FILE_BYTES)) {
+    if (typeof part.url !== "string") {
+      return Response.json(
+        { error: "An attachment could not be read." },
+        { status: 400 },
+      );
+    }
+
+    const fileBytes = getDataUrlSize(part.url);
+    if (fileBytes === null) {
+      return Response.json(
+        { error: "Attachments must be uploaded directly." },
+        { status: 400 },
+      );
+    }
+    if (fileBytes > MAX_FILE_BYTES) {
       return Response.json(
         { error: "Each file must be 8 MB or smaller." },
         { status: 413 },
       );
     }
-    const totalFileBytes = files.reduce((total, file) => total + file.size, 0);
-    if (totalFileBytes > MAX_TOTAL_FILE_BYTES) {
-      return Response.json(
-        { error: "Attachments must total 12 MB or less." },
-        { status: 413 },
-      );
-    }
+    totalFileBytes += fileBytes;
+  }
 
-    const recipeRequest = dish
-      ? `Generate a practical, flavorful recipe for ${dish}. Use the attached image(s) or file(s) as context when relevant. Include clear ingredient amounts and concise numbered cooking steps.`
-      : "Generate a practical, flavorful recipe inspired by the attached image(s) or file(s). Include clear ingredient amounts and concise numbered cooking steps.";
-    const content = [
-      { type: "text" as const, text: recipeRequest },
-      ...(await Promise.all(
-        files.map(async (file) => ({
-          type: "file" as const,
-          data: new Uint8Array(await file.arrayBuffer()),
-          mediaType: file.type,
-          filename: file.name,
-        })),
-      )),
-    ];
+  if (totalFileBytes > MAX_TOTAL_FILE_BYTES) {
+    return Response.json(
+      { error: "Attachments must total 12 MB or less." },
+      { status: 413 },
+    );
+  }
 
+  try {
     const result = streamObject({
       model: openrouter("openrouter/free"),
       schema: recipeSchema,
-      messages: [{ role: "user", content }],
+      instructions:
+        "Generate a practical, flavorful recipe based on the conversation and any attached images or files. Include clear ingredient amounts and concise cooking steps.",
+      messages: await convertToModelMessages(messages as UIMessage[]),
     });
 
     return result.toTextStreamResponse();
