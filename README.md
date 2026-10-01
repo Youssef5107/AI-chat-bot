@@ -10,6 +10,16 @@ POLLINATIONS_API_KEY=your-pollinations-api-key
 
 Image generation uses Pollen credits. Free credits may be available through Pollinations quests; check your account balance and the current model pricing.
 
+## Audio Transcription
+
+The `/transcription` page transcribes audio files with OpenAI Whisper. Add an OpenAI API key to `.env.local` and restart the app:
+
+```env
+OPENAI_API_KEY=your-openai-api-key
+```
+
+Supported files include MP3, MP4, M4A, MPEG, MPGA, WAV, WebM, OGG, and FLAC, up to 25 MB.
+
 ## Getting Started
 
 First, run the development server:
