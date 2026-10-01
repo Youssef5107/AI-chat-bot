@@ -1,4 +1,4 @@
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateImage } from "ai";
 
 type RequestBody = {
@@ -7,10 +7,12 @@ type RequestBody = {
   height?: unknown;
 };
 
-const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
+const pollinations = createOpenAICompatible({
+  name: "pollinations",
+  baseURL: "https://gen.pollinations.ai/v1",
+  apiKey: process.env.POLLINATIONS_API_KEY,
 });
-const imageModel = openrouter.imageModel("openai/gpt-image-1");
+const imageModel = pollinations.imageModel("black-forest-labs/flux.1-schnell");
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

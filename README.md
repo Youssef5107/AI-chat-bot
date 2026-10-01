@@ -2,11 +2,13 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Image Generation
 
-The `/images` page generates images with OpenAI GPT Image 1 through OpenRouter. Set an OpenRouter API key in `.env.local` and restart the app:
+The `/images` page generates images with FLUX.1 Schnell through Pollinations. Set a Pollinations API key in `.env.local` and restart the app:
 
 ```env
-OPENROUTER_API_KEY=your-openrouter-api-key
+POLLINATIONS_API_KEY=your-pollinations-api-key
 ```
+
+Image generation uses Pollen credits. Free credits may be available through Pollinations quests; check your account balance and the current model pricing.
 
 ## Getting Started
 
