@@ -42,6 +42,9 @@ export default function TranscriptionPage() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [progressMessage, setProgressMessage] = useState(
+    "Preparing local Whisper model",
+  );
 
   useEffect(() => {
     if (previewUrl) return () => URL.revokeObjectURL(previewUrl);
@@ -79,6 +82,7 @@ export default function TranscriptionPage() {
     setError(null);
     setTranscript(null);
     setIsTranscribing(true);
+    setProgressMessage("Loading the local model and transcribing");
     const formData = new FormData();
     formData.set("file", file);
 
@@ -114,7 +118,7 @@ export default function TranscriptionPage() {
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : "Transcription failed. Please try again.",
+          : "Local transcription failed. Try another audio file or browser.",
       );
     } finally {
       setIsTranscribing(false);
@@ -157,7 +161,7 @@ export default function TranscriptionPage() {
               <span
                 className={`size-1.5 rounded-full ${isTranscribing ? "animate-pulse bg-(--tomato)" : "bg-(--leaf)"}`}
               />
-              {isTranscribing ? "Transcribing" : "OpenAI Whisper"}
+              {isTranscribing ? "Working locally" : "Local Whisper"}
             </span>
           </div>
         </header>
@@ -249,7 +253,7 @@ export default function TranscriptionPage() {
             )}
 
             <p className="mt-6 border-t border-[#20251f]/15 pt-4 font-mono text-[9px] uppercase leading-5 tracking-widest text-[#898c81]">
-              Files are processed securely by OpenAI Whisper.
+              Audio is processed by the local app. Model downloads on first use.
             </p>
           </section>
 
@@ -276,7 +280,7 @@ export default function TranscriptionPage() {
                     </span>
                   </span>
                   <p className="font-serif text-2xl italic">
-                    Listening closely...
+                    {progressMessage}
                   </p>
                   <p className="mt-2 text-sm text-[#85877d]">
                     Longer recordings can take a little while.
