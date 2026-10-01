@@ -12,11 +12,7 @@ Image generation uses Pollen credits. Free credits may be available through Poll
 
 ## Audio Transcription
 
-The `/transcription` page transcribes audio files with OpenAI Whisper. Add an OpenAI API key to `.env.local` and restart the app:
-
-```env
-OPENAI_API_KEY=your-openai-api-key
-```
+The `/transcription` page runs a quantized Whisper model locally in the Next.js Node.js server with Transformers.js. No transcription API key is required. The model downloads from Hugging Face on first use and is cached on the server; inference speed depends on the server machine.
 
 Supported files include MP3, MP4, M4A, MPEG, MPGA, WAV, WebM, OGG, and FLAC, up to 25 MB.
 
