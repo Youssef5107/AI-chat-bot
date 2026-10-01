@@ -1,10 +1,16 @@
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { generateImage } from "ai";
+
 type RequestBody = {
   messages?: unknown;
-  negativePrompt?: unknown;
   width?: unknown;
   height?: unknown;
-  steps?: unknown;
 };
+
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
+const imageModel = openrouter.imageModel("openai/gpt-image-1");
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -65,36 +71,19 @@ export async function POST(request: Request) {
   const height = body.height === 512 || body.height === 768 ? body.height : 512;
 
   try {
-    // 1. Construct Pollinations AI Endpoint
-    const encodedPrompt = encodeURIComponent(prompt);
-    const seed = Math.floor(Math.random() * 1000000);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&nologo=true&seed=${seed}`;
-
-    // 2. Fetch Binary Image Data
-    const response = await fetch(imageUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
-      },
-      signal: AbortSignal.timeout(120_000),
+    const { image } = await generateImage({
+      model: imageModel,
+      prompt,
+      size: `${width}x${height}`,
+      seed: Math.floor(Math.random() * 1_000_000),
+      abortSignal: AbortSignal.timeout(120_000),
     });
 
-    if (!response.ok) {
-      return Response.json(
-        { error: `Image provider returned status ${response.status}.` },
-        { status: 502 },
-      );
-    }
-
-    // 3. Convert ArrayBuffer to Base64 (Node/Edge standard safe)
-    const arrayBuffer = await response.arrayBuffer();
-    const base64Image = Buffer.from(arrayBuffer).toString("base64");
-
     const payload = JSON.stringify({
-      imageUrl: `data:image/jpeg;base64,${base64Image}`,
+      imageUrl: `data:${image.mediaType};base64,${image.base64}`,
       prompt,
     });
 
-    // 4. Return as Text Stream response expected by TextStreamChatTransport
     return new Response(payload, {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
