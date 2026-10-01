@@ -147,7 +147,7 @@ export default function ImagesPage() {
               <span
                 className={`size-1.5 rounded-full ${isGenerating ? "animate-pulse bg-(--tomato)" : "bg-(--leaf)"}`}
               />
-              {isGenerating ? "Generating" : "Stable Diffusion"}
+              {isGenerating ? "Generating" : "GPT Image 1"}
             </span>
           </div>
         </header>
@@ -164,8 +164,8 @@ export default function ImagesPage() {
               <em className="text-(--leaf)">a little shape.</em>
             </h2>
             <p className="mt-4 max-w-md text-sm leading-6 text-[#686c62]">
-              Write a scene, a subject, or a feeling. Stable Diffusion will turn
-              your words into an image.
+              Write a scene, a subject, or a feeling. GPT Image 1 will turn your
+              words into an image.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-8">
