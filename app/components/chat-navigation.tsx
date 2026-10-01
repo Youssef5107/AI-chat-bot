@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 type ChatNavigationProps = {
-  active: "main" | "recipe" | "images";
+  active: "main" | "recipe" | "images" | "transcription";
 };
 
 const destinations = [
@@ -25,6 +25,13 @@ const destinations = [
     number: "03",
     label: "Image studio",
     detail: "Make a new image",
+  },
+  {
+    id: "transcription",
+    href: "/transcription",
+    number: "04",
+    label: "Transcription",
+    detail: "Turn audio into text",
   },
 ] as const;
 
@@ -50,7 +57,7 @@ export default function ChatNavigation({ active }: ChatNavigationProps) {
 
       <nav
         aria-label="Chat destinations"
-        className="mt-4 flex gap-2 md:mt-14 md:flex-col"
+        className="mt-4 grid grid-cols-2 gap-2 md:mt-14 md:flex md:flex-col"
       >
         {destinations.map((destination) => {
           const isActive = active === destination.id;
@@ -88,9 +95,11 @@ export default function ChatNavigation({ active }: ChatNavigationProps) {
 
       <div className="mt-auto hidden border-t border-[#20251f]/15 pt-4 md:block">
         <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#85897e]">
-          One assistant, three spaces
+          One assistant, four spaces
         </p>
-        <p className="mt-1 text-xs text-[#a0a195]">Ideas, recipes, images.</p>
+        <p className="mt-1 text-xs text-[#a0a195]">
+          Ideas, recipes, images, audio.
+        </p>
       </div>
     </aside>
   );
