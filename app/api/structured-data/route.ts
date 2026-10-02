@@ -9,6 +9,21 @@ const MAX_REQUEST_BYTES = 32 * 1024 * 1024;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_FILE_BYTES = 12 * 1024 * 1024;
 const MAX_FILES = 4;
+const RECIPE_SEARCH_PATTERN =
+  /\b(now|today|current|currently|latest|recent|this week|this month|this year|recall|food safety|safe to eat|internal temperature|substitute|seasonal|nutrition facts|calories|search the web|look up|find online|verify online|research|cite sources)\b/i;
+
+function getLatestUserText(messages: UIMessage[]) {
+  const latestUserMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === "user");
+
+  return (
+    latestUserMessage?.parts
+      .filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join("\n") ?? ""
+  );
+}
 
 function isSupportedMediaType(mediaType: string) {
   return (
@@ -141,19 +156,20 @@ export async function POST(req: Request) {
   }
 
   try {
+    const uiMessages = messages as UIMessage[];
+    const latestUserText = getLatestUserText(uiMessages);
+    const shouldRequireSearch = RECIPE_SEARCH_PATTERN.test(latestUserText);
+    const currentDate = new Date().toISOString().slice(0, 10);
+
     const result = streamText({
-      model: openrouter("openrouter/free"),
+      model: openrouter("google/gemma-4-31b-it:free"),
       output: Output.object({ schema: recipeSchema }),
       stopWhen: isStepCount(4),
-      tools: {
-        web_search: openrouter.tools.webSearch({
-          maxResults: 5,
-          engine: "auto",
-        }),
-      },
-      system:
-        "Generate a practical, flavorful recipe based on the conversation and any attached images or files. Include clear ingredient amounts and concise cooking steps. Search the web when current food-safety guidance, a specific technique, or reliable ingredient information would improve accuracy. Do not search for ordinary recipe ideas when it would not help. Use trustworthy results, and include source links only when you actually used search; never invent sources.",
-      messages: await convertToModelMessages(messages as UIMessage[]),
+      ...(shouldRequireSearch
+        ? { plugins: [{ id: "web" as const, max_results: 5 }] }
+        : {}),
+      system: `The current date is ${currentDate}. Generate a practical, flavorful recipe based on the conversation and attachments. Keep it concise: clear ingredient amounts and short steps, without extra background. For current food-safety guidance, recalls, seasonal availability, or techniques that need verification, use the web results supplied with this request. Do not reveal internal reasoning, tool instructions, tool-call syntax, or markup such as <tool_call> or <think>. Cite only real sources supplied with the search results; never invent sources.`,
+      messages: await convertToModelMessages(uiMessages),
     });
 
     return result.toUIMessageStreamResponse();
