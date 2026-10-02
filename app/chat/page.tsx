@@ -14,6 +14,8 @@ const starterPrompts = [
 const MAX_FILES = 4;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_FILE_BYTES = 12 * 1024 * 1024;
+const LIVE_INFORMATION_PATTERN =
+  /\b(now|today|current|currently|latest|recent|this week|this month|this year|weather|forecast|news|price|stock|score|schedule|opening hours|traffic|exchange rate|version|release date)\b/i;
 
 function fileToUIPart(file: File): Promise<FileUIPart> {
   return new Promise((resolve, reject) => {
@@ -44,26 +46,34 @@ function isSupportedFile(file: File) {
   );
 }
 
-function isWebSearchActive(messages: UIMessage[]) {
-  return messages.some(
-    (message) =>
-      message.role === "assistant" &&
-      message.parts.some((part) => {
-        const toolName =
-          part.type === "dynamic-tool"
-            ? part.toolName
-            : part.type.startsWith("tool-")
-              ? part.type.slice("tool-".length)
-              : "";
-        const state = "state" in part ? part.state : undefined;
+function stripInternalModelMarkup(text: string) {
+  return text
+    .replace(
+      /<(?:tool_call|think)\b[\s\S]*?(?:<\/think>|<\/tool_call>|$)/gi,
+      "",
+    )
+    .replace(/<\/?(?:tool_call|think)>/gi, "")
+    .trim();
+}
 
-        return (
-          toolName.includes("web_search") &&
-          state !== "output-available" &&
-          state !== "output-error" &&
-          state !== "output-denied"
-        );
-      }),
+function isWebSearchActive(message: UIMessage | undefined) {
+  return (
+    message?.parts.some((part) => {
+      const toolName =
+        part.type === "dynamic-tool"
+          ? part.toolName
+          : part.type.startsWith("tool-")
+            ? part.type.slice("tool-".length)
+            : "";
+      const state = "state" in part ? part.state : undefined;
+
+      return (
+        toolName.includes("web_search") &&
+        state !== "output-available" &&
+        state !== "output-error" &&
+        state !== "output-denied"
+      );
+    }) ?? false
   );
 }
 
@@ -77,7 +87,22 @@ export default function Home() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const isStreaming = status === "streaming" || status === "submitted";
-  const isSearchingWeb = isStreaming && isWebSearchActive(messages);
+  const latestUserText = [...messages]
+    .reverse()
+    .find((message) => message.role === "user")
+    ?.parts.filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n");
+  const latestAssistantMessage =
+    messages.at(-1)?.role === "assistant" ? messages.at(-1) : undefined;
+  const hasAssistantAnswerText = latestAssistantMessage?.parts.some(
+    (part) => part.type === "text" && part.text.trim().length > 0,
+  );
+  const isSearchingWeb =
+    isStreaming &&
+    (isWebSearchActive(latestAssistantMessage) ||
+      (!hasAssistantAnswerText &&
+        LIVE_INFORMATION_PATTERN.test(latestUserText ?? "")));
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -146,11 +171,7 @@ export default function Home() {
               <span
                 className={`size-1.5 rounded-full ${isStreaming ? "animate-pulse bg-(--tomato)" : "bg-(--leaf)"}`}
               />
-              {isSearchingWeb
-                ? "Searching the web"
-                : isStreaming
-                  ? "Replying"
-                  : "Ready"}
+              {isStreaming ? "Replying" : "Ready"}
             </span>
           </div>
         </header>
@@ -209,10 +230,12 @@ export default function Home() {
             )}
 
             {messages.map((message) => {
-              const text = message.parts
-                .filter((part) => part.type === "text")
-                .map((part) => part.text)
-                .join("");
+              const text = stripInternalModelMarkup(
+                message.parts
+                  .filter((part) => part.type === "text")
+                  .map((part) => part.text)
+                  .join(""),
+              );
               const attachments = message.parts.filter(
                 (part) => part.type === "file",
               );
@@ -292,6 +315,18 @@ export default function Home() {
                 </article>
               );
             })}
+            {isSearchingWeb && (
+              <div
+                role="status"
+                className="message-arrive flex justify-start"
+                aria-live="polite"
+              >
+                <div className="flex items-center gap-3 border-l-2 border-(--tomato) bg-[#fffdf7] px-5 py-4 font-mono text-[10px] uppercase tracking-[0.12em] text-(--leaf)">
+                  <span className="size-1.5 animate-pulse rounded-full bg-(--tomato)" />
+                  Searching the web for useful sources
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
