@@ -10,5 +10,13 @@ export const recipeSchema = z.object({
       }),
     ),
     steps: z.array(z.string()),
+    sources: z
+      .array(
+        z.object({
+          title: z.string(),
+          url: z.string().url(),
+        }),
+      )
+      .optional(),
   }),
 });
