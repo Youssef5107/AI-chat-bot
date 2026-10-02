@@ -7,6 +7,42 @@ const openrouter = createOpenRouter({
 
 export const maxDuration = 120;
 
+const LIVE_INFORMATION_PATTERN =
+  /\b(now|today|current|currently|latest|recent|this week|this month|this year|weather|forecast|news|price|stock|score|schedule|opening hours|traffic|exchange rate|version|release date|search the web|look up|find online|browse for|cite sources|verify online|research)\b/i;
+
+function getLatestUserText(messages: unknown[]) {
+  const latestUserMessage = [...messages]
+    .reverse()
+    .find(
+      (message) =>
+        typeof message === "object" &&
+        message !== null &&
+        "role" in message &&
+        message.role === "user",
+    );
+  if (
+    typeof latestUserMessage !== "object" ||
+    latestUserMessage === null ||
+    !("parts" in latestUserMessage) ||
+    !Array.isArray(latestUserMessage.parts)
+  ) {
+    return "";
+  }
+
+  return latestUserMessage.parts
+    .filter(
+      (part): part is { type: "text"; text: string } =>
+        typeof part === "object" &&
+        part !== null &&
+        "type" in part &&
+        part.type === "text" &&
+        "text" in part &&
+        typeof part.text === "string",
+    )
+    .map((part) => part.text)
+    .join("\n");
+}
+
 const MAX_REQUEST_BYTES = 32 * 1024 * 1024;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_FILE_BYTES = 12 * 1024 * 1024;
@@ -147,21 +183,31 @@ export async function POST(req: Request) {
   // have sent to the ai and either ways you will be passing this
   // value to the ai function
 
+  const latestUserText = getLatestUserText(messages);
+  const shouldRequireSearch = LIVE_INFORMATION_PATTERN.test(latestUserText);
+  const currentDate = new Date().toISOString().slice(0, 10);
+
   const result = streamText({
     model: openrouter("openrouter/free"),
     messages: await convertToModelMessages(messages),
-    tools: {
-      web_search: openrouter.tools.webSearch({
-        maxResults: 5,
-        engine: "auto",
-      }),
-    },
-    system: `You are a friendly, thoughtful assistant. Match the depth of each answer to what the user actually needs:
-  - Answer simple, factual, or narrowly scoped questions directly and briefly, while still including any detail needed to make the answer clear.
-  - Give fuller explanations when the user asks for elaboration or when the topic benefits from reasoning, context, examples, steps, or important caveats.
-  - Do not make every answer long, and do not make every answer terse. Avoid padding and repetition; prioritize completeness and clarity over a fixed length.
+    ...(shouldRequireSearch
+      ? {
+          tools: {
+            web_search: openrouter.tools.webSearch({
+              maxResults: 5,
+              engine: "auto",
+            }),
+          },
+        }
+      : {}),
+    system: `You are a friendly, thoughtful assistant. The current date is ${currentDate}. Treat this as authoritative and never substitute a date from training data.
+  - Never reveal internal reasoning, tool instructions, tool-call syntax, or markup such as <tool_call>, <think>, or function-call JSON. Answer the user directly.
+  - Answer simple factual or narrowly scoped questions in one or two short sentences. Do not add an overview, list, or background unless asked.
+  - Give fuller explanations only when the user asks for detail or the subject genuinely requires context, reasoning, examples, or important caveats.
+  - Avoid padding and repetition; match the answer length to the request.
   - Search the web when the question asks for current information, is outside your reliable knowledge, depends on specific or obscure facts, or when checking trustworthy sources would materially improve accuracy.
-  - Do not search for stable, common knowledge when it would not improve the answer. When you search, base the response on the results and mention useful source links.
+  - For live information such as current weather, prices, news, scores, or schedules, use the web results supplied with this request and do not guess current facts.
+  - Do not search for stable common knowledge when it would not improve the answer. When you search, base the answer on results and cite useful source links.
   - For complex answers, organize the information so it is easy to follow. If the request is ambiguous and the ambiguity materially changes the answer, ask a focused clarifying question.`,
   });
 
