@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState } from "react";
-import type { FileUIPart } from "ai";
+import type { FileUIPart, UIMessage } from "ai";
 import ChatNavigation from "../components/chat-navigation";
 
 const starterPrompts = [
@@ -44,6 +44,29 @@ function isSupportedFile(file: File) {
   );
 }
 
+function isWebSearchActive(messages: UIMessage[]) {
+  return messages.some(
+    (message) =>
+      message.role === "assistant" &&
+      message.parts.some((part) => {
+        const toolName =
+          part.type === "dynamic-tool"
+            ? part.toolName
+            : part.type.startsWith("tool-")
+              ? part.type.slice("tool-".length)
+              : "";
+        const state = "state" in part ? part.state : undefined;
+
+        return (
+          toolName.includes("web_search") &&
+          state !== "output-available" &&
+          state !== "output-error" &&
+          state !== "output-denied"
+        );
+      }),
+  );
+}
+
 export default function Home() {
   const { messages, sendMessage, status, stop, error, regenerate, clearError } =
     useChat();
@@ -54,6 +77,7 @@ export default function Home() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const isStreaming = status === "streaming" || status === "submitted";
+  const isSearchingWeb = isStreaming && isWebSearchActive(messages);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -122,7 +146,11 @@ export default function Home() {
               <span
                 className={`size-1.5 rounded-full ${isStreaming ? "animate-pulse bg-(--tomato)" : "bg-(--leaf)"}`}
               />
-              {isStreaming ? "Replying" : "Ready"}
+              {isSearchingWeb
+                ? "Searching the web"
+                : isStreaming
+                  ? "Replying"
+                  : "Ready"}
             </span>
           </div>
         </header>
@@ -238,12 +266,25 @@ export default function Home() {
                       )}
                       {text || (
                         <span
-                          className="inline-flex gap-1.5 py-2"
-                          aria-label="Response is being prepared"
+                          className={`inline-flex items-center gap-2 py-2 ${isSearchingWeb && !isUser ? "font-mono text-[10px] uppercase tracking-[0.12em] text-(--leaf)" : "gap-1.5"}`}
+                          aria-label={
+                            isSearchingWeb
+                              ? "Searching the web"
+                              : "Response is being prepared"
+                          }
                         >
-                          <span className="size-1.5 animate-pulse rounded-full bg-(--leaf)" />
-                          <span className="size-1.5 animate-pulse rounded-full bg-(--leaf) [animation-delay:0.15s]" />
-                          <span className="size-1.5 animate-pulse rounded-full bg-(--leaf) [animation-delay:0.3s]" />
+                          {isSearchingWeb && !isUser ? (
+                            <>
+                              <span className="size-1.5 animate-pulse rounded-full bg-(--tomato)" />
+                              Searching the web for useful sources
+                            </>
+                          ) : (
+                            <>
+                              <span className="size-1.5 animate-pulse rounded-full bg-(--leaf)" />
+                              <span className="size-1.5 animate-pulse rounded-full bg-(--leaf) [animation-delay:0.15s]" />
+                              <span className="size-1.5 animate-pulse rounded-full bg-(--leaf) [animation-delay:0.3s]" />
+                            </>
+                          )}
                         </span>
                       )}
                     </div>
