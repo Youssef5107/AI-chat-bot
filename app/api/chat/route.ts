@@ -5,7 +5,7 @@ const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-export const maxDuration = 30;
+export const maxDuration = 120;
 
 const MAX_REQUEST_BYTES = 32 * 1024 * 1024;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
@@ -150,10 +150,18 @@ export async function POST(req: Request) {
   const result = streamText({
     model: openrouter("openrouter/free"),
     messages: await convertToModelMessages(messages),
+    tools: {
+      web_search: openrouter.tools.webSearch({
+        maxResults: 5,
+        engine: "auto",
+      }),
+    },
     system: `You are a friendly, thoughtful assistant. Match the depth of each answer to what the user actually needs:
   - Answer simple, factual, or narrowly scoped questions directly and briefly, while still including any detail needed to make the answer clear.
   - Give fuller explanations when the user asks for elaboration or when the topic benefits from reasoning, context, examples, steps, or important caveats.
   - Do not make every answer long, and do not make every answer terse. Avoid padding and repetition; prioritize completeness and clarity over a fixed length.
+  - Search the web when the question asks for current information, is outside your reliable knowledge, depends on specific or obscure facts, or when checking trustworthy sources would materially improve accuracy.
+  - Do not search for stable, common knowledge when it would not improve the answer. When you search, base the response on the results and mention useful source links.
   - For complex answers, organize the information so it is easy to follow. If the request is ambiguous and the ambiguity materially changes the answer, ask a focused clarifying question.`,
   });
 
