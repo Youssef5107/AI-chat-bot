@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRef } from "react";
 import { useChat } from "@ai-sdk/react";
-import { TextStreamChatTransport, convertFileListToFileUIParts } from "ai";
-import type { FileUIPart } from "ai";
+import { DefaultChatTransport, convertFileListToFileUIParts } from "ai";
+import type { FileUIPart, UIMessage } from "ai";
 import ChatNavigation from "../components/chat-navigation";
 
 type Ingredient = {
@@ -16,13 +16,16 @@ type Recipe = {
   name: string;
   ingredients: Ingredient[];
   steps: string[];
+  sources?: Array<{ title: string; url: string }>;
 };
 
 const ideas = ["lemony pasta", "crispy chickpeas", "mushrooms & rice"];
 const MAX_FILES = 4;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_FILE_BYTES = 12 * 1024 * 1024;
-const recipeTransport = new TextStreamChatTransport({
+const RECIPE_SEARCH_PATTERN =
+  /\b(now|today|current|currently|latest|recent|this week|this month|this year|recall|food safety|safe to eat|internal temperature|substitute|seasonal)\b/i;
+const recipeTransport = new DefaultChatTransport({
   api: "/api/structured-data",
 });
 
@@ -36,6 +39,37 @@ function isSupportedFile(file: File) {
     file.type.startsWith("image/") ||
     file.type.startsWith("text/") ||
     file.type === "application/pdf"
+  );
+}
+
+function stripInternalModelMarkup(text: string) {
+  return text
+    .replace(
+      /<(?:tool_call|think)\b[\s\S]*?(?:<\/think>|<\/tool_call>|$)/gi,
+      "",
+    )
+    .replace(/<\/?(?:tool_call|think)>/gi, "")
+    .trim();
+}
+
+function isWebSearchActive(message: UIMessage | undefined) {
+  return (
+    message?.parts.some((part) => {
+      const toolName =
+        part.type === "dynamic-tool"
+          ? part.toolName
+          : part.type.startsWith("tool-")
+            ? part.type.slice("tool-".length)
+            : "";
+      const state = "state" in part ? part.state : undefined;
+
+      return (
+        toolName.includes("web_search") &&
+        state !== "output-available" &&
+        state !== "output-error" &&
+        state !== "output-denied"
+      );
+    }) ?? false
   );
 }
 
@@ -63,12 +97,24 @@ function isRecipeResponse(value: unknown): value is { recipe: Recipe } {
     ) &&
     "steps" in recipe &&
     Array.isArray(recipe.steps) &&
-    recipe.steps.every((step) => typeof step === "string")
+    recipe.steps.every((step) => typeof step === "string") &&
+    (!("sources" in recipe) ||
+      (Array.isArray(recipe.sources) &&
+        recipe.sources.every(
+          (source) =>
+            typeof source === "object" &&
+            source !== null &&
+            "title" in source &&
+            typeof source.title === "string" &&
+            "url" in source &&
+            typeof source.url === "string",
+        )))
   );
 }
 
 export default function StructuredDatePage() {
   const {
+    messages,
     sendMessage,
     status,
     error: chatError,
@@ -77,10 +123,12 @@ export default function StructuredDatePage() {
     transport: recipeTransport,
     onFinish: ({ message, isError }) => {
       if (isError) return;
-      const text = message.parts
-        .filter((part) => part.type === "text")
-        .map((part) => part.text)
-        .join("");
+      const text = stripInternalModelMarkup(
+        message.parts
+          .filter((part) => part.type === "text")
+          .map((part) => part.text)
+          .join(""),
+      );
 
       try {
         const payload: unknown = JSON.parse(text);
@@ -106,6 +154,22 @@ export default function StructuredDatePage() {
   const [files, setFiles] = useState<SelectedFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isGenerating = status === "submitted" || status === "streaming";
+  const latestUserText = [...messages]
+    .reverse()
+    .find((message) => message.role === "user")
+    ?.parts.filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n");
+  const latestAssistantMessage =
+    messages.at(-1)?.role === "assistant" ? messages.at(-1) : undefined;
+  const hasAssistantAnswerText = latestAssistantMessage?.parts.some(
+    (part) => part.type === "text" && part.text.trim().length > 0,
+  );
+  const isSearchingWeb =
+    isGenerating &&
+    (isWebSearchActive(latestAssistantMessage) ||
+      (!hasAssistantAnswerText &&
+        RECIPE_SEARCH_PATTERN.test(`${dish}\n${latestUserText ?? ""}`)));
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -229,7 +293,11 @@ export default function StructuredDatePage() {
                   }
                   className="my-2 flex shrink-0 items-center gap-3 bg-(--tomato) px-4 font-mono text-[10px] uppercase tracking-[0.12em] text-white transition-colors hover:bg-[#a8402e] disabled:cursor-not-allowed disabled:bg-[#c8c4b8] sm:px-5"
                 >
-                  {isGenerating ? "Working" : "Make it"}
+                  {isSearchingWeb
+                    ? "Searching the web"
+                    : isGenerating
+                      ? "Working"
+                      : "Make it"}
                   <span aria-hidden="true">{isGenerating ? "···" : "↗"}</span>
                 </button>
               </div>
@@ -349,10 +417,14 @@ export default function StructuredDatePage() {
                   <span className="animate-spin font-serif text-2xl">✳</span>
                 </span>
                 <p className="font-serif text-2xl italic">
-                  Finding the good bits...
+                  {isSearchingWeb
+                    ? "Searching the web..."
+                    : "Finding the good bits..."}
                 </p>
                 <p className="mt-2 text-sm text-[#85877d]">
-                  Putting your recipe together
+                  {isSearchingWeb
+                    ? "Checking reliable cooking and food-safety sources"
+                    : "Putting your recipe together"}
                 </p>
               </div>
             ) : recipe ? (
@@ -462,6 +534,27 @@ export default function StructuredDatePage() {
                     </ol>
                   </div>
                 </div>
+                {recipe.sources && recipe.sources.length > 0 && (
+                  <div className="mt-7 border-t border-[#20251f]/10 pt-4">
+                    <h3 className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#85897e]">
+                      Sources
+                    </h3>
+                    <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+                      {recipe.sources.map((source) => (
+                        <li key={source.url}>
+                          <a
+                            href={source.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-(--leaf) underline underline-offset-4 hover:text-(--tomato)"
+                          >
+                            {source.title}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex min-h-62.5 flex-col justify-center px-6 py-9 sm:px-10">
