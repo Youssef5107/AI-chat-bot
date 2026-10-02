@@ -1,9 +1,9 @@
-import { convertToModelMessages, streamObject } from "ai";
+import { convertToModelMessages, isStepCount, Output, streamText } from "ai";
 import type { UIMessage } from "ai";
 import { openrouter } from "@openrouter/ai-sdk-provider";
 import { recipeSchema } from "./schema";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const MAX_REQUEST_BYTES = 32 * 1024 * 1024;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
@@ -141,15 +141,22 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = streamObject({
+    const result = streamText({
       model: openrouter("openrouter/free"),
-      schema: recipeSchema,
-      instructions:
-        "Generate a practical, flavorful recipe based on the conversation and any attached images or files. Include clear ingredient amounts and concise cooking steps.",
+      output: Output.object({ schema: recipeSchema }),
+      stopWhen: isStepCount(4),
+      tools: {
+        web_search: openrouter.tools.webSearch({
+          maxResults: 5,
+          engine: "auto",
+        }),
+      },
+      system:
+        "Generate a practical, flavorful recipe based on the conversation and any attached images or files. Include clear ingredient amounts and concise cooking steps. Search the web when current food-safety guidance, a specific technique, or reliable ingredient information would improve accuracy. Do not search for ordinary recipe ideas when it would not help. Use trustworthy results, and include source links only when you actually used search; never invent sources.",
       messages: await convertToModelMessages(messages as UIMessage[]),
     });
 
-    return result.toTextStreamResponse();
+    return result.toUIMessageStreamResponse();
   } catch (error) {
     console.error(error);
     return Response.json(
