@@ -11,6 +11,7 @@ const MAX_TOTAL_FILE_BYTES = 12 * 1024 * 1024;
 const MAX_FILES = 4;
 const RECIPE_SEARCH_PATTERN =
   /\b(now|today|current|currently|latest|recent|this week|this month|this year|recall|food safety|safe to eat|internal temperature|substitute|seasonal|nutrition facts|calories|search the web|look up|find online|verify online|research|cite sources)\b/i;
+const SOURCE_REQUEST_PREFIX = "Show the sources for your previous recipe";
 
 function getLatestUserText(messages: UIMessage[]) {
   const latestUserMessage = [...messages]
@@ -158,7 +159,9 @@ export async function POST(req: Request) {
   try {
     const uiMessages = messages as UIMessage[];
     const latestUserText = getLatestUserText(uiMessages);
-    const shouldRequireSearch = RECIPE_SEARCH_PATTERN.test(latestUserText);
+    const isSourcesRequest = latestUserText.startsWith(SOURCE_REQUEST_PREFIX);
+    const shouldRequireSearch =
+      !isSourcesRequest && RECIPE_SEARCH_PATTERN.test(latestUserText);
     const currentDate = new Date().toISOString().slice(0, 10);
 
     const result = streamText({
@@ -168,7 +171,9 @@ export async function POST(req: Request) {
       ...(shouldRequireSearch
         ? { plugins: [{ id: "web" as const, max_results: 5 }] }
         : {}),
-      system: `The current date is ${currentDate}. Generate a practical, flavorful recipe based on the conversation and attachments. Keep it concise: clear ingredient amounts and short steps, without extra background. For current food-safety guidance, recalls, seasonal availability, or techniques that need verification, use the web results supplied with this request. Do not reveal internal reasoning, tool instructions, tool-call syntax, or markup such as <tool_call> or <think>. Cite only real sources supplied with the search results; never invent sources.`,
+      system: isSourcesRequest
+        ? `The current date is ${currentDate}. This is a source follow-up. Return the previous recipe unchanged, including its name, ingredients, and steps. Populate recipe.sources only with source links present in the previous recipe or actual tool results in this conversation. Do not search again or invent sources. If no source links are present, return an empty sources array.`
+        : `The current date is ${currentDate}. Generate a practical, flavorful recipe based on the conversation and attachments. Keep it concise: clear ingredient amounts and short steps, without extra background. For current food-safety guidance, recalls, seasonal availability, or techniques that need verification, use the web results supplied with this request. Do not reveal internal reasoning, tool instructions, tool-call syntax, or markup such as <tool_call> or <think>. Cite only real sources supplied with the search results; never invent sources.`,
       messages: await convertToModelMessages(uiMessages),
     });
 
