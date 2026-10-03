@@ -23,6 +23,8 @@ const ideas = ["lemony pasta", "crispy chickpeas", "mushrooms & rice"];
 const MAX_FILES = 4;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_FILE_BYTES = 12 * 1024 * 1024;
+const SOURCE_REQUEST_PREFIX = "Show the sources for your previous recipe";
+const SOURCE_REQUEST_PROMPT = `${SOURCE_REQUEST_PREFIX}. Use only source links already present in this conversation; do not search again or invent sources. If no source links were used, return an empty sources list.`;
 const recipeTransport = new DefaultChatTransport({
   api: "/api/structured-data",
 });
@@ -88,7 +90,7 @@ function isRecipeResponse(value: unknown): value is { recipe: Recipe } {
     "steps" in recipe &&
     Array.isArray(recipe.steps) &&
     recipe.steps.every((step) => typeof step === "string") &&
-    (! ("sources" in recipe) ||
+    (!("sources" in recipe) ||
       (Array.isArray(recipe.sources) &&
         recipe.sources.every(
           (source) =>
@@ -111,7 +113,7 @@ export default function StructuredDatePage() {
     clearError,
   } = useChat({
     transport: recipeTransport,
-    onFinish: ({ message, isError }) => {
+    onFinish: ({ message, messages: finishedMessages, isError }) => {
       if (isError) return;
       const text = message.parts
         .filter((part) => part.type === "text")
@@ -123,7 +125,20 @@ export default function StructuredDatePage() {
         if (!isRecipeResponse(payload)) {
           throw new Error("The recipe came back in an unexpected format.");
         }
-        setRecipe(payload.recipe);
+        const latestUserMessage = [...finishedMessages]
+          .reverse()
+          .find((item) => item.role === "user");
+        const isSourcesReply =
+          latestUserMessage?.parts
+            .filter((part) => part.type === "text")
+            .map((part) => part.text)
+            .join("\n")
+            .startsWith(SOURCE_REQUEST_PREFIX) ?? false;
+        setRecipe((currentRecipe) =>
+          isSourcesReply && currentRecipe
+            ? { ...currentRecipe, sources: payload.recipe.sources ?? [] }
+            : payload.recipe,
+        );
         setFiles([]);
       } catch (caughtError) {
         setError(
@@ -140,9 +155,18 @@ export default function StructuredDatePage() {
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<SelectedFile[]>([]);
+  const [sourcePromptDismissed, setSourcePromptDismissed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isGenerating = status === "submitted" || status === "streaming";
   const isSearchingWeb = isGenerating && isWebSearchActive(messages);
+  const latestUserText = [...messages]
+    .reverse()
+    .find((message) => message.role === "user")
+    ?.parts.filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n");
+  const isSourcesReply =
+    latestUserText?.startsWith(SOURCE_REQUEST_PREFIX) ?? false;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -151,6 +175,7 @@ export default function StructuredDatePage() {
 
     setError(null);
     setRecipe(null);
+    setSourcePromptDismissed(false);
     setCheckedIngredients([]);
     setCompletedSteps([]);
 
@@ -164,6 +189,21 @@ export default function StructuredDatePage() {
         caughtError instanceof Error
           ? caughtError.message
           : "Something went wrong. Please try again.",
+      );
+    }
+  }
+
+  async function handleShowSources() {
+    if (isGenerating) return;
+
+    setError(null);
+    try {
+      await sendMessage({ text: SOURCE_REQUEST_PROMPT });
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "The recipe sources could not be loaded.",
       );
     }
   }
@@ -507,27 +547,60 @@ export default function StructuredDatePage() {
                     </ol>
                   </div>
                 </div>
-                {recipe.sources && recipe.sources.length > 0 && (
-                  <div className="mt-7 border-t border-[#20251f]/10 pt-4">
-                    <h3 className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#85897e]">
-                      Sources
-                    </h3>
-                    <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
-                      {recipe.sources.map((source) => (
-                        <li key={source.url}>
-                          <a
-                            href={source.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs text-(--leaf) underline underline-offset-4 hover:text-(--tomato)"
-                          >
-                            {source.title}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {isSourcesReply &&
+                  recipe.sources &&
+                  recipe.sources.length > 0 && (
+                    <div className="mt-7 border-t border-[#20251f]/10 pt-4">
+                      <h3 className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#85897e]">
+                        Sources
+                      </h3>
+                      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+                        {recipe.sources.map((source) => (
+                          <li key={source.url}>
+                            <a
+                              href={source.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-(--leaf) underline underline-offset-4 hover:text-(--tomato)"
+                            >
+                              {source.title}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                {isSourcesReply &&
+                  status === "ready" &&
+                  (!recipe.sources || recipe.sources.length === 0) && (
+                    <p className="mt-7 border-t border-[#20251f]/10 pt-4 text-sm text-[#73776d]">
+                      No source links were used for this recipe.
+                    </p>
+                  )}
+                {!isSourcesReply &&
+                  status === "ready" &&
+                  !sourcePromptDismissed && (
+                    <div className="source-prompt-enter mt-7 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-[#20251f]/10 pt-4">
+                      <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#85897e]">
+                        Need the references?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void handleShowSources()}
+                        className="inline-flex items-center gap-2 border border-(--leaf)/30 bg-[#e8e9de] px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-(--leaf) transition hover:border-(--leaf) hover:bg-[#dfe4d8] hover:shadow-[0_5px_14px_rgba(44,47,37,0.08)]"
+                      >
+                        <span aria-hidden="true">↗</span>
+                        Show sources
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSourcePromptDismissed(true)}
+                        className="px-2 py-2 font-mono text-[9px] uppercase tracking-widest text-[#85897e] transition hover:text-(--tomato)"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
               </div>
             ) : (
               <div className="flex min-h-62.5 flex-col justify-center px-6 py-9 sm:px-10">
