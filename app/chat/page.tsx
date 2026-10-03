@@ -16,6 +16,8 @@ const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_FILE_BYTES = 12 * 1024 * 1024;
 const LIVE_INFORMATION_PATTERN =
   /\b(now|today|current|currently|latest|recent|this week|this month|this year|weather|forecast|news|price|stock|score|schedule|opening hours|traffic|exchange rate|version|release date)\b/i;
+const SOURCE_REQUEST_PROMPT =
+  "Show the sources for your previous answer. Use only source links that are already present in this conversation; do not search again or invent sources. If no source links were used, say that no sources were used.";
 
 function fileToUIPart(file: File): Promise<FileUIPart> {
   return new Promise((resolve, reject) => {
@@ -83,6 +85,9 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dismissedSourceMessageId, setDismissedSourceMessageId] = useState<
+    string | null
+  >(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -130,6 +135,11 @@ export default function Home() {
       return;
     }
     setInput("");
+  };
+
+  const handleShowSources = () => {
+    if (isStreaming) return;
+    void sendMessage({ text: SOURCE_REQUEST_PROMPT });
   };
 
   const handleFilesSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -229,7 +239,7 @@ export default function Home() {
               </div>
             )}
 
-            {messages.map((message) => {
+            {messages.map((message, index) => {
               const text = stripInternalModelMarkup(
                 message.parts
                   .filter((part) => part.type === "text")
@@ -240,6 +250,21 @@ export default function Home() {
                 (part) => part.type === "file",
               );
               const isUser = message.role === "user";
+              const previousMessage = messages[index - 1];
+              const isSourcesReply =
+                !isUser &&
+                previousMessage?.role === "user" &&
+                previousMessage.parts
+                  .filter((part) => part.type === "text")
+                  .map((part) => part.text)
+                  .join("\n") === SOURCE_REQUEST_PROMPT;
+              const canOfferSources =
+                !isUser &&
+                message.id === latestAssistantMessage?.id &&
+                status === "ready" &&
+                !isSourcesReply &&
+                text.length > 0 &&
+                dismissedSourceMessageId !== message.id;
 
               return (
                 <article
@@ -311,6 +336,33 @@ export default function Home() {
                         </span>
                       )}
                     </div>
+                    {canOfferSources && (
+                      <div
+                        className="source-prompt-enter mt-3 flex flex-wrap items-center gap-x-3 gap-y-2"
+                        aria-label="Response sources"
+                      >
+                        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#85897e]">
+                          Need the references?
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleShowSources}
+                          className="inline-flex items-center gap-2 border border-(--leaf)/30 bg-[#e8e9de] px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-(--leaf) transition hover:border-(--leaf) hover:bg-[#dfe4d8] hover:shadow-[0_5px_14px_rgba(44,47,37,0.08)]"
+                        >
+                          <span aria-hidden="true">↗</span>
+                          Show sources
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDismissedSourceMessageId(message.id)
+                          }
+                          className="px-2 py-2 font-mono text-[9px] uppercase tracking-widest text-[#85897e] transition hover:text-(--tomato)"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </article>
               );
