@@ -103,6 +103,29 @@ function isWebSearchActive(message: UIMessage | undefined) {
   );
 }
 
+function getActiveMediaTool(messages: UIMessage[]) {
+  for (const message of [...messages].reverse()) {
+    if (message.role !== "assistant") continue;
+
+    for (const part of [...message.parts].reverse()) {
+      const toolName =
+        part.type === "dynamic-tool"
+          ? part.toolName
+          : part.type.startsWith("tool-")
+            ? part.type.slice("tool-".length)
+            : "";
+      const state = "state" in part ? part.state : undefined;
+      if (state !== "input-streaming" && state !== "input-available") {
+        continue;
+      }
+      if (toolName === "generate_image") return "image" as const;
+      if (toolName === "transcribe_audio") return "transcription" as const;
+    }
+  }
+
+  return null;
+}
+
 function ToolResultView({ value }: { value: unknown }) {
   if (!isRecord(value) || typeof value.kind !== "string") return null;
 
@@ -250,6 +273,7 @@ export default function MainChat() {
     messages.at(-1)?.role === "assistant" ? messages.at(-1) : undefined;
   const isSearchingWeb =
     isStreaming && isWebSearchActive(latestAssistantMessage);
+  const activeMediaTool = isStreaming ? getActiveMediaTool(messages) : null;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -477,6 +501,50 @@ export default function MainChat() {
                             <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-(--leaf)">
                               <span className="mr-2 inline-block size-1.5 animate-pulse rounded-full bg-(--tomato)" />
                               Searching the web for useful sources
+                            </span>
+                          ) : activeMediaTool === "image" ? (
+                            <span
+                              className="image-generation-waiting"
+                              role="status"
+                              aria-label="Generating your image"
+                            >
+                              <span
+                                className="image-generation-waiting__frame"
+                                aria-hidden="true"
+                              >
+                                <span className="image-generation-waiting__sun" />
+                                <span className="image-generation-waiting__hill image-generation-waiting__hill--back" />
+                                <span className="image-generation-waiting__hill image-generation-waiting__hill--front" />
+                                <span className="image-generation-waiting__scan" />
+                              </span>
+                              <span className="image-generation-waiting__caption">
+                                Developing your image
+                                <span
+                                  className="image-generation-waiting__dots"
+                                  aria-hidden="true"
+                                >
+                                  ···
+                                </span>
+                              </span>
+                            </span>
+                          ) : activeMediaTool === "transcription" ? (
+                            <span
+                              className="audio-transcription-waiting"
+                              role="status"
+                              aria-label="Transcribing your audio"
+                            >
+                              <span
+                                className="audio-transcription-waiting__wave"
+                                aria-hidden="true"
+                              >
+                                {Array.from({ length: 9 }, (_, index) => (
+                                  <span key={index} />
+                                ))}
+                              </span>
+                              <span className="audio-transcription-waiting__label">
+                                Listening for every word
+                                <span>Turning your recording into text</span>
+                              </span>
                             </span>
                           ) : (
                             <>
