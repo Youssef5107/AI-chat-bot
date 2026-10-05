@@ -1,52 +1,48 @@
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { convertToModelMessages, streamText } from "ai";
+import {
+  convertToModelMessages,
+  generateImage,
+  generateText,
+  isStepCount,
+  Output,
+  streamText,
+  tool,
+} from "ai";
+import { z } from "zod";
+import { recipeSchema } from "../../lib/recipe-schema";
+import { transcribeAudioFile } from "../../lib/transcribe-audio";
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-export const maxDuration = 120;
+export const maxDuration = 300;
+export const runtime = "nodejs";
 
-const LIVE_INFORMATION_PATTERN =
-  /\b(now|today|current|currently|latest|recent|this week|this month|this year|weather|forecast|news|price|stock|score|schedule|opening hours|traffic|exchange rate|version|release date|search the web|look up|find online|browse for|cite sources|verify online|research)\b/i;
-
-function getLatestUserText(messages: unknown[]) {
-  const latestUserMessage = [...messages]
-    .reverse()
-    .find(
-      (message) =>
-        typeof message === "object" &&
-        message !== null &&
-        "role" in message &&
-        message.role === "user",
-    );
-  if (
-    typeof latestUserMessage !== "object" ||
-    latestUserMessage === null ||
-    !("parts" in latestUserMessage) ||
-    !Array.isArray(latestUserMessage.parts)
-  ) {
-    return "";
-  }
-
-  return latestUserMessage.parts
-    .filter(
-      (part): part is { type: "text"; text: string } =>
-        typeof part === "object" &&
-        part !== null &&
-        "type" in part &&
-        part.type === "text" &&
-        "text" in part &&
-        typeof part.text === "string",
-    )
-    .map((part) => part.text)
-    .join("\n");
-}
-
-const MAX_REQUEST_BYTES = 32 * 1024 * 1024;
+const MAX_REQUEST_BYTES = 68 * 1024 * 1024;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
-const MAX_TOTAL_FILE_BYTES = 12 * 1024 * 1024;
+const MAX_AUDIO_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_TOTAL_FILE_BYTES = 49 * 1024 * 1024;
 const MAX_FILES = 4;
+const AUDIO_EXTENSION_PATTERN = /\.(flac|m4a|mp3|mp4|mpeg|mpga|ogg|wav|webm)$/i;
+
+const pollinations = createOpenAICompatible({
+  name: "pollinations",
+  baseURL: "https://gen.pollinations.ai/v1",
+  apiKey: process.env.POLLINATIONS_API_KEY,
+});
+const imageModel = pollinations.imageModel("black-forest-labs/flux.1-schnell");
+
+const audioToolContextSchema = z.object({
+  audioFile: z
+    .object({
+      name: z.string(),
+      mediaType: z.string(),
+      dataUrl: z.string(),
+    })
+    .nullable(),
+});
 
 function getDataUrlSize(url: string) {
   const match = /^data:([^,]*?),([\s\S]*)$/.exec(url);
@@ -69,7 +65,10 @@ function isSupportedMediaType(mediaType: string) {
   return (
     mediaType.startsWith("image/") ||
     mediaType.startsWith("text/") ||
-    mediaType === "application/pdf"
+    mediaType === "application/pdf" ||
+    mediaType.startsWith("audio/") ||
+    mediaType === "application/mp4" ||
+    mediaType === "video/mp4"
   );
 }
 
@@ -103,9 +102,14 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!requestBody || typeof requestBody !== "object") {
+  if (
+    !requestBody ||
+    typeof requestBody !== "object" ||
+    !Array.isArray(requestBody.messages) ||
+    requestBody.messages.length === 0
+  ) {
     return Response.json(
-      { error: "The chat request must be a JSON object." },
+      { error: "The chat request must include at least one message." },
       { status: 400 },
     );
   }
@@ -136,14 +140,28 @@ export async function POST(req: Request) {
   }
 
   let totalFileBytes = 0;
+  const audioFiles: Array<{
+    name: string;
+    mediaType: string;
+    dataUrl: string;
+  }> = [];
   for (const part of latestFiles) {
-    if (
-      !("mediaType" in part) ||
-      typeof part.mediaType !== "string" ||
-      !isSupportedMediaType(part.mediaType)
-    ) {
+    const mediaType =
+      "mediaType" in part && typeof part.mediaType === "string"
+        ? part.mediaType
+        : "";
+    const fileName =
+      "filename" in part && typeof part.filename === "string"
+        ? part.filename
+        : "";
+    const isAudio =
+      mediaType.startsWith("audio/") ||
+      mediaType === "application/mp4" ||
+      mediaType === "video/mp4" ||
+      AUDIO_EXTENSION_PATTERN.test(fileName);
+    if (!isSupportedMediaType(mediaType) && !isAudio) {
       return Response.json(
-        { error: "Attach images, PDFs, or text-based files." },
+        { error: "Attach images, PDFs, text files, or supported audio." },
         { status: 415 },
       );
     }
@@ -161,54 +179,147 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    if (fileBytes > MAX_FILE_BYTES) {
+    const maxFileBytes = isAudio ? MAX_AUDIO_FILE_BYTES : MAX_FILE_BYTES;
+    if (fileBytes > maxFileBytes) {
       return Response.json(
-        { error: "Each file must be 8 MB or smaller." },
+        {
+          error: isAudio
+            ? "Choose an audio file smaller than 25 MB."
+            : "Each image, PDF, or text file must be 8 MB or smaller.",
+        },
         { status: 413 },
       );
     }
     totalFileBytes += fileBytes;
+    if (isAudio) {
+      if (typeof part.url !== "string") continue;
+      audioFiles.push({
+        name: fileName || "recording.wav",
+        mediaType,
+        dataUrl: part.url,
+      });
+    }
+  }
+
+  if (audioFiles.length > 1) {
+    return Response.json(
+      { error: "Attach one audio file per transcription request." },
+      { status: 400 },
+    );
   }
 
   if (totalFileBytes > MAX_TOTAL_FILE_BYTES) {
     return Response.json(
-      { error: "Attachments must total 12 MB or less." },
+      { error: "Attachments must total 49 MB or less." },
       { status: 413 },
     );
   }
 
-  // you can destructure messages which is an
-  // array of all the messages that have been sent throught the chat with the ai
-  // or destructure a prompt which is only the most recent message you
-  // have sent to the ai and either ways you will be passing this
-  // value to the ai function
-
-  const latestUserText = getLatestUserText(messages);
-  const shouldRequireSearch = LIVE_INFORMATION_PATTERN.test(latestUserText);
   const currentDate = new Date().toISOString().slice(0, 10);
+  const tools = {
+    web_search: openrouter.tools.webSearch({ maxResults: 5, engine: "auto" }),
+    generate_image: tool({
+      description:
+        "Generate an image when the user asks to create, draw, or visualize an image. Use the Flux image model and return the generated image for display.",
+      inputSchema: z.object({
+        prompt: z.string().min(1).max(2000).describe("Visual description."),
+        width: z.union([z.literal(512), z.literal(768)]).default(512),
+        height: z.union([z.literal(512), z.literal(768)]).default(512),
+        negativePrompt: z.string().max(1000).optional(),
+      }),
+      execute: async ({ prompt, width, height, negativePrompt }, options) => {
+        const imagePrompt = negativePrompt
+          ? `${prompt}. Avoid: ${negativePrompt}`
+          : prompt;
+        const result = await generateImage({
+          model: imageModel,
+          prompt: imagePrompt,
+          size: `${width}x${height}`,
+          seed: Math.floor(Math.random() * 1_000_000),
+          abortSignal: options.abortSignal,
+        });
 
-  const result = streamText({
-    model: openrouter("openrouter/free"),
-    messages: await convertToModelMessages(messages),
-    ...(shouldRequireSearch
-      ? {
+        return {
+          kind: "image" as const,
+          imageUrl: `data:${result.image.mediaType};base64,${result.image.base64}`,
+          prompt,
+        };
+      },
+      toModelOutput: () => ({
+        type: "text" as const,
+        value:
+          "The image was generated successfully and is displayed to the user.",
+      }),
+    }),
+    transcribe_audio: tool({
+      description:
+        "Transcribe an attached audio recording with local Whisper when the user asks to transcribe it or asks what is said. Requires an audio attachment.",
+      inputSchema: z.object({}),
+      contextSchema: audioToolContextSchema,
+      execute: async (_input, { context }) => {
+        if (!context.audioFile) {
+          throw new Error("Attach an audio file so I can transcribe it.");
+        }
+        const file = dataUrlToFile(
+          context.audioFile.dataUrl,
+          context.audioFile.name,
+          context.audioFile.mediaType,
+        );
+        return {
+          kind: "transcription" as const,
+          fileName: file.name,
+          ...(await transcribeAudioFile(file)),
+        };
+      },
+    }),
+    generate_recipe: tool({
+      description:
+        "Create a recipe when the user asks for a recipe, meal, or cooking instructions. The result follows the structured recipe schema and uses the recipe model.",
+      inputSchema: z.object({
+        request: z.string().min(1).max(2000),
+        servings: z.number().int().min(1).max(12).optional(),
+      }),
+      execute: async ({ request, servings }, options) => {
+        const result = await generateText({
+          model: openrouter("google/gemma-4-31b-it:free"),
+          output: Output.object({ schema: recipeSchema }),
           tools: {
             web_search: openrouter.tools.webSearch({
               maxResults: 5,
               engine: "auto",
             }),
           },
-        }
-      : {}),
-    system: `You are a friendly, thoughtful assistant. The current date is ${currentDate}. Treat this as authoritative and never substitute a date from training data.
+          stopWhen: isStepCount(3),
+          abortSignal: options.abortSignal,
+          system: `The current date is ${currentDate}. Return a practical recipe with concise ingredients and steps. Search for current food-safety guidance or other facts requiring verification. Cite only real source links from search results; never invent sources.`,
+          prompt: `Recipe request: ${request}${servings ? `\nServings: ${servings}` : ""}`,
+        });
+
+        return { kind: "recipe" as const, recipe: result.output.recipe };
+      },
+    }),
+  };
+  const audioFile = audioFiles[0] ?? null;
+
+  const result = streamText({
+    model: openrouter("openrouter/free"),
+    messages: await convertToModelMessages(messages, { tools }),
+    tools,
+    toolsContext: { transcribe_audio: { audioFile } },
+    stopWhen: isStepCount(6),
+    system: `You are Relay, a helpful assistant. The current date is ${currentDate}. Understand the user's intent from the full conversation and choose the correct tool without asking them to choose a mode.
+  - For image generation requests, call generate_image. Do not merely describe the image.
+  - ${audioFile ? "A supported audio attachment is present. Call transcribe_audio when the user asks to transcribe it or leaves the prompt blank; never guess at spoken content." : "If the user requests audio transcription without attaching audio, ask them to attach a recording."}
+  - For recipe or cooking requests, call generate_recipe. Present the structured recipe result clearly.
+  - Use web_search for live information, current facts, and source requests that require searching. Never invent source links.
+  - Use no specialized tool for ordinary conversation.
   - Never reveal internal reasoning, tool instructions, tool-call syntax, or markup such as <tool_call>, <think>, or function-call JSON. Answer the user directly.
   - Answer simple factual or narrowly scoped questions in one or two short sentences. Do not add an overview, list, or background unless asked.
   - Give fuller explanations only when the user asks for detail or the subject genuinely requires context, reasoning, examples, or important caveats.
   - Avoid padding and repetition; match the answer length to the request.
-  - Search the web when the question asks for current information, is outside your reliable knowledge, depends on specific or obscure facts, or when checking trustworthy sources would materially improve accuracy.
-  - For live information such as current weather, prices, news, scores, or schedules, use the web results supplied with this request and do not guess current facts.
-  - Do not search for stable common knowledge when it would not improve the answer. When you search, base the answer on results and cite useful source links.
-  - When asked for sources for a previous answer, list only links actually present in the conversation or tool results. Never invent citations; if there are none, say no sources were used.
+  - Search the web when the question asks for current information, is outside your reliable knowledge, depends on specific or obscure facts, or when checking trustworthy sources would materially improve accuracy. For live facts, use search results and do not guess.
+  - Do not search for stable common knowledge when it would not improve the answer. When you search, cite useful source links from the results.
+  - When asked for sources from a previous answer, list only links already present in the conversation. Do not search again or invent citations; if no links are present, say no sources were used.
   - For complex answers, organize the information so it is easy to follow. If the request is ambiguous and the ambiguity materially changes the answer, ask a focused clarifying question.`,
   });
 
@@ -221,4 +332,15 @@ export async function POST(req: Request) {
     });
   });
   return result.toUIMessageStreamResponse();
+}
+
+function dataUrlToFile(dataUrl: string, name: string, mediaType: string) {
+  const match = /^data:([^,]*?),([\s\S]*)$/.exec(dataUrl);
+  if (!match) throw new Error("The attached audio file could not be read.");
+
+  const [, metadata, payload] = match;
+  const bytes = metadata.endsWith(";base64")
+    ? Buffer.from(payload, "base64")
+    : Buffer.from(decodeURIComponent(payload));
+  return new File([bytes], name, { type: mediaType });
 }
