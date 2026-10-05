@@ -257,7 +257,7 @@ function ToolResultView({ value }: { value: unknown }) {
   return null;
 }
 
-export default function Home() {
+export default function MainChat() {
   const { messages, sendMessage, status, stop, error, regenerate, clearError } =
     useChat({ transport: chatTransport });
   const [input, setInput] = useState("");
