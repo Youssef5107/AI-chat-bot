@@ -40,3 +40,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 test-audio.m4a
+
+/app/generated/prisma
+
+# AI Agent & Editor Tooling
+.*skills/
+.agents/
+.claude/
+.windsurf/
+skills-lock.json
+prisma.config.ts
