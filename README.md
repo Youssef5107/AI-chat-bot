@@ -1,20 +1,17 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Relay AI is a single conversational workspace. The assistant selects tools from context for web search, image generation, structured recipe generation, and audio transcription.
 
-## Image Generation
+## Configuration
 
-The `/images` page generates images with FLUX.1 Schnell through Pollinations. Set a Pollinations API key in `.env.local` and restart the app:
+Set the required provider keys in `.env.local`:
 
 ```env
+OPENROUTER_API_KEY=your-openrouter-api-key
 POLLINATIONS_API_KEY=your-pollinations-api-key
 ```
 
-Image generation uses Pollen credits. Free credits may be available through Pollinations quests; check your account balance and the current model pricing.
+Image generation uses FLUX.1 Schnell through Pollinations. Audio transcription runs the quantized Whisper model locally in the Node.js server; the model downloads from Hugging Face on first use and is cached on the server. Supported audio formats include MP3, MP4, M4A, MPEG, MPGA, WAV, WebM, OGG, and FLAC, up to 25 MB.
 
-## Audio Transcription
-
-The `/transcription` page runs a quantized Whisper model locally in the Next.js Node.js server with Transformers.js. No transcription API key is required. The model downloads from Hugging Face on first use and is cached on the server; inference speed depends on the server machine.
-
-Supported files include MP3, MP4, M4A, MPEG, MPGA, WAV, WebM, OGG, and FLAC, up to 25 MB.
+Attach images, PDFs, and text files up to 8 MB each, or one audio file up to 25 MB. Up to four files can be attached to one message.
 
 ## Getting Started
 
