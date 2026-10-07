@@ -26,6 +26,49 @@ const MAX_AUDIO_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_TOTAL_FILE_BYTES = 49 * 1024 * 1024;
 const MAX_FILES = 4;
 const AUDIO_EXTENSION_PATTERN = /\.(flac|m4a|mp3|mp4|mpeg|mpga|ogg|wav|webm)$/i;
+const USAGE_LIMIT_ERROR_MESSAGE =
+  "The AI service has reached its current usage limit. Please wait a little, then try again.";
+
+function getStreamErrorMessage(error: unknown) {
+  const details: string[] = [];
+  const pending: unknown[] = [error];
+  const seen = new Set<object>();
+  let hasRateLimitStatus = false;
+
+  while (pending.length > 0) {
+    const value = pending.pop();
+    if (typeof value === "string") {
+      details.push(value);
+      continue;
+    }
+    if (typeof value !== "object" || value === null || seen.has(value)) {
+      continue;
+    }
+
+    seen.add(value);
+    const record = value as Record<string, unknown>;
+    if (record.status === 429 || record.statusCode === 429) {
+      hasRateLimitStatus = true;
+    }
+    for (const key of ["message", "code", "statusText"]) {
+      if (typeof record[key] === "string") details.push(record[key]);
+    }
+    if (record.cause) pending.push(record.cause);
+    if (record.response) pending.push(record.response);
+    if (record.error) pending.push(record.error);
+  }
+
+  if (
+    hasRateLimitStatus ||
+    /rate.?limit|quota|too many requests|insufficient credits|credits? exhausted|usage limit/i.test(
+      details.join(" "),
+    )
+  ) {
+    return USAGE_LIMIT_ERROR_MESSAGE;
+  }
+
+  return "An error occurred.";
+}
 
 const pollinations = createOpenAICompatible({
   name: "pollinations",
@@ -331,7 +374,7 @@ export async function POST(req: Request) {
       totalTokens: usage.totalTokens,
     });
   });
-  return result.toUIMessageStreamResponse();
+  return result.toUIMessageStreamResponse({ onError: getStreamErrorMessage });
 }
 
 function dataUrlToFile(dataUrl: string, name: string, mediaType: string) {
