@@ -683,6 +683,101 @@
   }
 }
 
+/* Keep the existing palette; soften the geometry and focus states. */
+:where(button, a, input, textarea):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--leaf) 72%, transparent);
+  outline-offset: 3px;
+}
+
+.sidebar-shell,
+.mobile-sidebar {
+  border-color: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+.new-chat-button,
+.sidebar-shell button:not(.new-chat-button),
+.mobile-sidebar button,
+.mobile-nav-trigger {
+  border-radius: 9px;
+}
+
+.settings-popover {
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(32, 37, 31, 0.08);
+}
+
+section[aria-label="Conversation"] > div > .rise-in,
+.image-generation-waiting__frame,
+.audio-transcription-waiting,
+.message-arrive > div > div,
+.message-arrive > div > div > section {
+  border-radius: 12px;
+}
+
+section[aria-label="Conversation"] > div > .rise-in {
+  box-shadow: 0 14px 38px rgba(44, 47, 37, 0.055);
+}
+
+.stagger-in button,
+.source-prompt-enter button,
+.workspace-footer button,
+.auth-primary,
+.auth-secondary,
+.auth-form input {
+  border-radius: 9px;
+}
+
+.composer-focus {
+  border-radius: 14px;
+  box-shadow: 0 8px 26px rgba(44, 47, 37, 0.045);
+}
+
+.composer-focus:focus-within {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--leaf) 9%, transparent),
+    0 10px 30px rgba(44, 47, 37, 0.075);
+}
+
+.composer-focus > button,
+.composer-focus > textarea {
+  border-radius: 9px;
+}
+
+.auth-dialog {
+  border-radius: 14px;
+  box-shadow: 0 24px 72px rgba(22, 27, 22, 0.2);
+}
+
+.auth-dialog__close {
+  border-radius: 8px;
+}
+
+.auth-form input:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--leaf) 10%, transparent);
+}
+
+.mobile-nav-backdrop {
+  backdrop-filter: blur(3px);
+}
+
+@media (max-width: 640px) {
+  section[aria-label="Conversation"] > div > .rise-in {
+    border-radius: 10px;
+  }
+
+  .composer-focus {
+    border-radius: 12px;
+  }
+
+  .auth-overlay {
+    padding: 0.75rem;
+  }
+
+  .auth-dialog {
+    border-radius: 12px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
