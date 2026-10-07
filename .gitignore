@@ -50,3 +50,4 @@ test-audio.m4a
 .windsurf/
 skills-lock.json
 prisma.config.ts
+/app/generated/prisma
