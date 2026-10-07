@@ -97,7 +97,10 @@ export default function AuthOverlay({
             </button>
           </div>
         ) : (
-          <div className="auth-dialog__content">
+          <div
+            key={mode}
+            className="auth-dialog__content auth-dialog__content--switch"
+          >
             <p className="auth-eyebrow">
               {mode === "login" ? "Welcome back" : "Start a fresh chapter"}
             </p>
