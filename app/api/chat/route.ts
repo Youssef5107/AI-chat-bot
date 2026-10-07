@@ -13,8 +13,47 @@ import { z } from "zod";
 import { recipeSchema } from "../../../lib/recipe-schema";
 import { transcribeAudioFile } from "../../../lib/transcribe-audio";
 
+const primaryOpenRouterKey =
+  process.env.OPENROUTER_KEY_PRIMARY ?? process.env.OPENROUTER_API_KEY;
+const backupOpenRouterKey = process.env.OPENROUTER_KEY_BACKUP;
+
+async function isUsageLimitResponse(response: Response) {
+  if (response.status === 429) return true;
+  if (response.status !== 402) return false;
+
+  try {
+    const body: unknown = await response.clone().json();
+    return /quota|credit|usage limit|rate.?limit/i.test(JSON.stringify(body));
+  } catch {
+    return false;
+  }
+}
+
+async function fetchWithOpenRouterFallback(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) {
+  const request = new Request(input, init);
+  const backupKey = backupOpenRouterKey;
+  if (!backupKey || backupKey === primaryOpenRouterKey) {
+    return fetch(request);
+  }
+
+  const backupHeaders = new Headers(request.headers);
+  backupHeaders.set("Authorization", `Bearer ${backupKey}`);
+  const backupRequest = new Request(request.clone(), {
+    headers: backupHeaders,
+  });
+  const primaryResponse = await fetch(request);
+
+  if (!(await isUsageLimitResponse(primaryResponse))) return primaryResponse;
+
+  return fetch(backupRequest);
+}
+
 const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
+  apiKey: primaryOpenRouterKey,
+  fetch: fetchWithOpenRouterFallback,
 });
 
 export const maxDuration = 300;
