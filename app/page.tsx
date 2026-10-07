@@ -286,8 +286,6 @@ export default function MainChat() {
   >(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(264);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [reduceMotion, setReduceMotion] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dismissedSourceMessageId, setDismissedSourceMessageId] = useState<
     string | null
@@ -413,9 +411,7 @@ export default function MainChat() {
   }
 
   return (
-    <div
-      className={`app-shell flex h-dvh overflow-hidden bg-(--paper) text-(--ink) ${reduceMotion ? "reduce-motion" : ""}`}
-    >
+    <div className="app-shell flex h-dvh overflow-hidden bg-(--paper) text-(--ink)">
       <aside
         className="sidebar-shell relative z-20 hidden shrink-0 flex-col border-r border-[#20251f]/12 bg-[#eeece2] md:flex"
         style={{ width: sidebarWidth }}
@@ -445,26 +441,8 @@ export default function MainChat() {
           </button>
         </div>
         <div className="mt-auto space-y-2 border-t border-[#20251f]/10 p-4">
-          {settingsOpen && (
-            <div className="settings-popover mb-3 border border-[#20251f]/12 bg-[#f8f6ef] p-4">
-              <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-(--leaf)">
-                Preferences
-              </p>
-              <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 text-xs text-[#565c51]">
-                Reduce motion
-                <input
-                  type="checkbox"
-                  checked={reduceMotion}
-                  onChange={(event) => setReduceMotion(event.target.checked)}
-                  className="accent-(--leaf)"
-                />
-              </label>
-            </div>
-          )}
           <button
             type="button"
-            onClick={() => setSettingsOpen((open) => !open)}
-            aria-expanded={settingsOpen}
             className="flex h-10 w-full items-center gap-3 px-3 text-left text-sm text-[#62675d] transition hover:bg-[#e4e4d9] hover:text-(--ink)"
           >
             <Settings aria-hidden="true" size={17} />
@@ -481,7 +459,7 @@ export default function MainChat() {
           <button
             type="button"
             onClick={() => setAuthMode("register")}
-            className="flex h-10 w-full items-center justify-center gap-2 bg-(--leaf) px-3 text-sm text-white transition hover:bg-[#334c38]"
+            className="flex h-10 w-full items-center justify-center gap-2 bg-(--leaf) px-3 text-sm text-white transition hover:bg-[#914b35]"
           >
             <UserRoundPlus aria-hidden="true" size={16} />
             Create account <ArrowUpRight aria-hidden="true" size={14} />
@@ -548,28 +526,8 @@ export default function MainChat() {
               </button>
             </div>
             <div className="mt-auto space-y-2 border-t border-[#20251f]/10 p-4">
-              {settingsOpen && (
-                <div className="settings-popover mb-3 border border-[#20251f]/12 bg-[#f8f6ef] p-4">
-                  <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-(--leaf)">
-                    Preferences
-                  </p>
-                  <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 text-xs text-[#565c51]">
-                    Reduce motion
-                    <input
-                      type="checkbox"
-                      checked={reduceMotion}
-                      onChange={(event) =>
-                        setReduceMotion(event.target.checked)
-                      }
-                      className="accent-(--leaf)"
-                    />
-                  </label>
-                </div>
-              )}
               <button
                 type="button"
-                onClick={() => setSettingsOpen((open) => !open)}
-                aria-expanded={settingsOpen}
                 className="flex h-10 w-full items-center gap-3 px-3 text-left text-sm text-[#62675d] transition hover:bg-[#e4e4d9] hover:text-(--ink)"
               >
                 <Settings aria-hidden="true" size={17} />
@@ -592,7 +550,7 @@ export default function MainChat() {
                   setAuthMode("register");
                   setMobileNavOpen(false);
                 }}
-                className="flex h-10 w-full items-center justify-center gap-2 bg-(--leaf) px-3 text-sm text-white transition hover:bg-[#334c38]"
+                className="flex h-10 w-full items-center justify-center gap-2 bg-(--leaf) px-3 text-sm text-white transition hover:bg-[#914b35]"
               >
                 <UserRoundPlus aria-hidden="true" size={16} />
                 Create account <ArrowUpRight aria-hidden="true" size={14} />
@@ -638,7 +596,7 @@ export default function MainChat() {
                 <div className="rise-in overflow-hidden border border-[#20251f]/10 bg-[#e8e9de]">
                   <div
                     aria-hidden="true"
-                    className="image-reveal relative min-h-48 overflow-hidden bg-[#536451] bg-cover bg-center sm:min-h-60"
+                    className="image-reveal relative min-h-48 overflow-hidden bg-[#a95f43] bg-cover bg-center sm:min-h-60"
                     style={{
                       backgroundImage:
                         'url("https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1400&q=85")',
@@ -940,7 +898,7 @@ export default function MainChat() {
                 <button
                   type="button"
                   onClick={() => stop()}
-                  className="shrink-0 bg-[#e8e9de] px-4 py-3 font-mono text-[10px] uppercase tracking-[0.13em] text-(--leaf) transition hover:bg-[#dce1d7]"
+                  className="shrink-0 rounded-lg bg-[#e8e9de] px-4 py-3 font-mono text-[10px] uppercase tracking-[0.13em] text-(--leaf) transition hover:bg-[#ead8cf]"
                 >
                   Stop
                 </button>
@@ -948,7 +906,7 @@ export default function MainChat() {
                 <button
                   type="submit"
                   disabled={!input.trim() && files.length === 0}
-                  className="shrink-0 bg-(--leaf) px-4 py-3 font-mono text-[10px] uppercase tracking-[0.13em] text-white transition hover:bg-[#334c38] disabled:cursor-not-allowed disabled:bg-[#c8c7bb]"
+                  className="shrink-0 rounded-lg bg-(--leaf) px-4 py-3 font-mono text-[10px] uppercase tracking-[0.13em] text-white transition hover:bg-[#914b35] disabled:cursor-not-allowed disabled:bg-[#c8c7bb]"
                 >
                   Send <span aria-hidden="true">↗</span>
                 </button>

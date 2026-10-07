@@ -4,7 +4,7 @@
   --paper: #f4f1e7;
   --ink: #20251f;
   --tomato: #c84f38;
-  --leaf: #426047;
+  --leaf: #a85d41;
   --butter: #e7c86c;
 }
 
@@ -135,7 +135,7 @@
   aspect-ratio: 16 / 8;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--leaf) 24%, transparent);
-  background: linear-gradient(180deg, #dce8df 0%, #eee8d4 62%, #e4dbc3 100%);
+  background: linear-gradient(180deg, #f1dfd3 0%, #eee8d4 62%, #e4dbc3 100%);
   isolation: isolate;
 }
 
@@ -162,12 +162,12 @@
 .image-generation-waiting__hill--back {
   bottom: -40%;
   left: 24%;
-  background: #8da08a;
+  background: #d49b7d;
 }
 
 .image-generation-waiting__hill--front {
   right: 20%;
-  background: #536d58;
+  background: #aa6348;
 }
 
 .image-generation-waiting__frame::before {
@@ -346,11 +346,6 @@
   outline: none;
 }
 
-.settings-popover {
-  transform-origin: bottom left;
-  animation: settings-open 180ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-
 .mobile-nav-backdrop {
   animation: backdrop-open 220ms ease-out both;
 }
@@ -486,7 +481,7 @@
 
 .auth-primary:hover {
   transform: translateY(-1px);
-  background: #334c38;
+  background: #914b35;
 }
 
 .auth-secondary {
@@ -646,17 +641,6 @@
   }
 }
 
-@keyframes settings-open {
-  from {
-    opacity: 0;
-    transform: translateY(0.3rem) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
 .lift-on-hover {
   transition:
     transform 180ms ease,
@@ -684,7 +668,7 @@
 }
 
 /* Keep the existing palette; soften the geometry and focus states. */
-:where(button, a, input, textarea):focus-visible {
+:where(button, a, input):focus-visible {
   outline: 2px solid color-mix(in srgb, var(--leaf) 72%, transparent);
   outline-offset: 3px;
 }
@@ -699,11 +683,6 @@
 .mobile-sidebar button,
 .mobile-nav-trigger {
   border-radius: 9px;
-}
-
-.settings-popover {
-  border-radius: 10px;
-  box-shadow: 0 12px 28px rgba(32, 37, 31, 0.08);
 }
 
 section[aria-label="Conversation"] > div > .rise-in,
@@ -743,6 +722,10 @@ section[aria-label="Conversation"] > div > .rise-in {
   border-radius: 9px;
 }
 
+.composer-focus > textarea:focus-visible {
+  outline: none;
+}
+
 .auth-dialog {
   border-radius: 14px;
   box-shadow: 0 24px 72px rgba(22, 27, 22, 0.2);
@@ -758,6 +741,11 @@ section[aria-label="Conversation"] > div > .rise-in {
 
 .mobile-nav-backdrop {
   backdrop-filter: blur(3px);
+}
+
+.sidebar-shell button.bg-\(--leaf\):hover,
+.mobile-sidebar button.bg-\(--leaf\):hover {
+  background-color: #914b35;
 }
 
 @media (max-width: 640px) {
