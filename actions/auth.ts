@@ -24,7 +24,7 @@ export async function register(_prev: string | undefined, formData: FormData) {
   });
 
   try {
-    await signIn("credentials", { email, password, redirectTo: "/dashboard" });
+    await signIn("credentials", { email, password, redirectTo: "/" });
   } catch (error) {
     if (error instanceof AuthError)
       return "Account created, but sign-in failed.";
@@ -37,7 +37,7 @@ export async function login(_prev: string | undefined, formData: FormData) {
     await signIn("credentials", {
       email: formData.get("email"),
       password: formData.get("password"),
-      redirectTo: "/dashboard",
+      redirectTo: "/",
     });
   } catch (error) {
     if (error instanceof AuthError) return "Invalid email or password.";
