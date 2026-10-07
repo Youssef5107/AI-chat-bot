@@ -10,8 +10,8 @@ import {
   tool,
 } from "ai";
 import { z } from "zod";
-import { recipeSchema } from "../../lib/recipe-schema";
-import { transcribeAudioFile } from "../../lib/transcribe-audio";
+import { recipeSchema } from "../../../lib/recipe-schema";
+import { transcribeAudioFile } from "../../../lib/transcribe-audio";
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
