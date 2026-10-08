@@ -16,6 +16,7 @@ model User {
   password      String?
   accounts      Account[]
   sessions      Session[]
+  chats         Chat[]    // new
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -53,4 +54,31 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model Chat {
+  id           String    @id @default(cuid())
+  userId       String
+  title        String?
+  summary      String?   @db.Text  // cached "simplified" history
+  summarizedUpTo Int     @default(0) // how many messages the summary covers
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([userId, updatedAt])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  chatId    String
+  role      String   // "user" | "assistant" | "system"
+  parts     Json     // the UIMessage parts array (text, tool calls, etc.)
+  createdAt DateTime @default(now())
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId, createdAt])
 }
