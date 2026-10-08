@@ -79,10 +79,10 @@ export default function MainChat() {
         isAuthenticated === false && messages.length === 0;
       const sending = sendMessage({ text, files: fileParts });
       if (shouldPromptForAuth) setAuthMode("prompt");
-      await sending;
       setInput("");
       setFiles([]);
       setUploadError(null);
+      await sending;
     } catch (caughtError) {
       setUploadError(
         caughtError instanceof Error
