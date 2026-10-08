@@ -6,14 +6,16 @@ import { prisma } from "@/lib/prisma";
 import { signIn } from "@/lib/auth";
 
 export async function register(_prev: string | undefined, formData: FormData) {
-  const name = String(formData.get("name") ?? "").trim();
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
+  const name = [firstName, lastName].filter(Boolean).join(" ");
   const email = String(formData.get("email") ?? "")
     .toLowerCase()
     .trim();
   const password = String(formData.get("password") ?? "");
 
-  if (!email || password.length < 8) {
-    return "Enter an email and a password of at least 8 characters.";
+  if (!firstName || !email || password.length < 8) {
+    return "Enter your first name, an email and a password of at least 8 characters.";
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
