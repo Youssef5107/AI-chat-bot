@@ -417,19 +417,6 @@
   color: var(--ink);
 }
 
-.auth-dialog__mark {
-  display: grid;
-  width: 2.6rem;
-  aspect-ratio: 1;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--tomato);
-  color: white;
-  font-family: Georgia, serif;
-  font-size: 1.65rem;
-  font-style: italic;
-}
-
 .auth-dialog__content {
   animation: auth-content-open 260ms 50ms ease-out both;
 }

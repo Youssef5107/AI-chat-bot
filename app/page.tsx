@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import AuthOverlay from "./components/auth-overlay";
 import Conversation from "./components/conversation";
+import { SaylaBrand } from "./components/sayla-brand";
 import SideNav from "./components/side-nav";
 import {
   AUDIO_EXTENSIONS,
@@ -172,8 +173,8 @@ export default function MainChat() {
               >
                 <Menu size={19} />
               </button>
-              <span className="font-serif text-lg text-(--ink) md:hidden">
-                Relay <span className="text-(--leaf)">AI</span>
+              <span className="md:hidden">
+                <SaylaBrand compact />
               </span>
             </div>
             <div className="flex min-w-0 items-center gap-3 sm:gap-5">

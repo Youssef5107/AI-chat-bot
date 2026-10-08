@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { SaylaBrand } from "./sayla-brand";
 
 type SideNavProps = {
   isAuthenticated: boolean | null;
@@ -168,14 +169,9 @@ export default function SideNav({
           <Link
             href="/"
             className="flex items-center gap-3"
-            aria-label="Relay AI home"
+            aria-label="Sayla home"
           >
-            <span className="grid size-9 place-items-center rounded-full bg-(--tomato) font-serif text-xl italic text-white">
-              r
-            </span>
-            <span className="font-serif text-[22px] leading-none text-(--ink)">
-              Relay <span className="text-(--leaf)">AI</span>
-            </span>
+            <SaylaBrand />
           </Link>
         </div>
         <div className="px-4">{renderNewChatButton()}</div>
@@ -215,14 +211,9 @@ export default function SideNav({
               <Link
                 href="/"
                 className="flex items-center gap-3"
-                aria-label="Relay AI home"
+                aria-label="Sayla home"
               >
-                <span className="grid size-9 place-items-center rounded-full bg-(--tomato) font-serif text-xl italic text-white">
-                  r
-                </span>
-                <span className="font-serif text-[22px] leading-none">
-                  Relay <span className="text-(--leaf)">AI</span>
-                </span>
+                <SaylaBrand compact />
               </Link>
               <button
                 type="button"
@@ -262,13 +253,11 @@ export default function SideNav({
               }
             }}
           >
-            <div className="auth-dialog__mark" aria-hidden="true">
-              r
-            </div>
+            <SaylaBrand compact />
             <div className="auth-dialog__content">
               <p className="auth-eyebrow">Before you go</p>
               <h2 id="logout-title" className="auth-title">
-                Log out of Relay AI?
+                Log out of Sayla?
               </h2>
               <p id="logout-description" className="auth-copy">
                 You can log back in anytime to access your account.

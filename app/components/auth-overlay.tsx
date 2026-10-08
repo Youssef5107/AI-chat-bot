@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { login, register } from "@/actions/auth";
+import { SaylaMark } from "./sayla-brand";
 
 type AuthMode = "prompt" | "login" | "register";
 
@@ -62,9 +63,7 @@ export default function AuthOverlay({
         >
           ×
         </button>
-        <div className="auth-dialog__mark" aria-hidden="true">
-          r
-        </div>
+        <SaylaMark size={42} className="rounded-[14px]" />
 
         {mode === "prompt" ? (
           <div className="auth-dialog__content">
@@ -105,7 +104,7 @@ export default function AuthOverlay({
               {mode === "login" ? "Welcome back" : "Start a fresh chapter"}
             </p>
             <h2 id="auth-title" className="auth-title">
-              {mode === "login" ? "Log in to Relay AI" : "Create your account"}
+              {mode === "login" ? "Log in to Sayla" : "Create your account"}
             </h2>
             <p className="auth-copy">
               {mode === "login"
@@ -175,9 +174,7 @@ export default function AuthOverlay({
               </button>
             </form>
             <p className="auth-switch">
-              {mode === "login"
-                ? "New to Relay AI?"
-                : "Already have an account?"}{" "}
+              {mode === "login" ? "New to Sayla?" : "Already have an account?"}{" "}
               <button
                 type="button"
                 onClick={() => setMode(mode === "login" ? "register" : "login")}

@@ -137,7 +137,7 @@ export default function Conversation({
                   {!isUser && (
                     <span className="size-1.5 rounded-full bg-(--leaf)" />
                   )}
-                  {isUser ? "You" : "Relay AI · response"}
+                  {isUser ? "You" : "Sayla · response"}
                 </p>
                 <div
                   className={`whitespace-pre-wrap text-[15px] leading-7 ${isUser ? "border border-[#c84f38]/10 bg-[#f0e2d7] px-4 py-3 text-[#49332c] sm:px-5" : "border-l-2 border-(--leaf) bg-[#fffdf7] px-5 py-4 text-[#42483f] shadow-[0_8px_24px_rgba(44,47,37,0.04)] sm:px-6"}`}
