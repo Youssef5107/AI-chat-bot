@@ -117,10 +117,23 @@ export default function AuthOverlay({
               className="auth-form"
             >
               {mode === "register" && (
-                <label>
-                  <span>Your name</span>
-                  <input name="name" autoComplete="name" />
-                </label>
+                <>
+                  <label>
+                    <span>First name</span>
+                    <input
+                      name="firstName"
+                      autoComplete="given-name"
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span>
+                      Last name{" "}
+                      <span className="text-[#85897e]">(optional)</span>
+                    </span>
+                    <input name="lastName" autoComplete="family-name" />
+                  </label>
+                </>
               )}
               <label>
                 <span>Email address</span>
