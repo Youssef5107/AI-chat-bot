@@ -284,6 +284,9 @@ export default function MainChat() {
   const [files, setFiles] = useState<File[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isLogoutPending, setIsLogoutPending] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const [authMode, setAuthMode] = useState<
     "prompt" | "login" | "register" | null
   >(null);
@@ -403,9 +406,18 @@ export default function MainChat() {
   }
 
   async function handleSignOut() {
-    await signOut({ redirect: false });
-    setIsAuthenticated(false);
-    setUserName(null);
+    setIsLogoutPending(true);
+    setLogoutError(null);
+    try {
+      await signOut({ redirect: false });
+      setIsAuthenticated(false);
+      setUserName(null);
+      setIsLogoutConfirmOpen(false);
+    } catch {
+      setLogoutError("Could not log out. Please try again.");
+    } finally {
+      setIsLogoutPending(false);
+    }
   }
 
   function renderAccountControls(isMobile = false) {
@@ -418,13 +430,15 @@ export default function MainChat() {
         <>
           <button
             type="button"
-            onClick={() => void handleSignOut()}
+            onClick={() => setIsLogoutConfirmOpen(true)}
             className="flex h-10 w-full items-center gap-3 px-3 text-left text-sm text-[#62675d] transition hover:bg-[#e4e4d9] hover:text-(--ink)"
           >
-            <LogOut aria-hidden="true" size={17} />
+            <span className="grid size-9 shrink-0 place-items-center">
+              <LogOut aria-hidden="true" size={17} />
+            </span>
             Log out
           </button>
-          <div className="flex min-w-0 items-center gap-3 px-3 py-2">
+          <div className="flex h-10 min-w-0 items-center gap-3 px-3">
             <span className="grid size-9 shrink-0 place-items-center rounded-full border border-[#20251f]/10 bg-(--tomato) font-serif text-lg text-white">
               {initial}
             </span>
@@ -446,7 +460,9 @@ export default function MainChat() {
           }}
           className="flex h-10 w-full items-center gap-3 px-3 text-left text-sm text-[#62675d] transition hover:bg-[#e4e4d9] hover:text-(--ink)"
         >
-          <LogIn aria-hidden="true" size={17} />
+          <span className="grid size-9 shrink-0 place-items-center">
+            <LogIn aria-hidden="true" size={17} />
+          </span>
           Log in
         </button>
         <button
@@ -518,7 +534,9 @@ export default function MainChat() {
             type="button"
             className="flex h-10 w-full items-center gap-3 px-3 text-left text-sm text-[#62675d] transition hover:bg-[#e4e4d9] hover:text-(--ink)"
           >
-            <Settings aria-hidden="true" size={17} />
+            <span className="grid size-9 shrink-0 place-items-center">
+              <Settings aria-hidden="true" size={17} />
+            </span>
             Settings
           </button>
           {renderAccountControls()}
@@ -588,12 +606,74 @@ export default function MainChat() {
                 type="button"
                 className="flex h-10 w-full items-center gap-3 px-3 text-left text-sm text-[#62675d] transition hover:bg-[#e4e4d9] hover:text-(--ink)"
               >
-                <Settings aria-hidden="true" size={17} />
+                <span className="grid size-9 shrink-0 place-items-center">
+                  <Settings aria-hidden="true" size={17} />
+                </span>
                 Settings
               </button>
               {renderAccountControls(true)}
             </div>
           </aside>
+        </div>
+      )}
+
+      {isLogoutConfirmOpen && (
+        <div className="auth-overlay">
+          <button
+            type="button"
+            aria-label="Cancel log out"
+            onClick={() => setIsLogoutConfirmOpen(false)}
+            className="auth-overlay__backdrop"
+          />
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="logout-title"
+            aria-describedby="logout-description"
+            className="auth-dialog"
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && !isLogoutPending) {
+                setIsLogoutConfirmOpen(false);
+              }
+            }}
+          >
+            <div className="auth-dialog__mark" aria-hidden="true">
+              r
+            </div>
+            <div className="auth-dialog__content">
+              <p className="auth-eyebrow">Before you go</p>
+              <h2 id="logout-title" className="auth-title">
+                Log out of Relay AI?
+              </h2>
+              <p id="logout-description" className="auth-copy">
+                You can log back in anytime to access your account.
+              </p>
+              {logoutError && (
+                <p role="alert" className="auth-error">
+                  {logoutError}
+                </p>
+              )}
+              <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setIsLogoutConfirmOpen(false)}
+                  disabled={isLogoutPending}
+                  className="auth-secondary"
+                  autoFocus
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleSignOut()}
+                  disabled={isLogoutPending}
+                  className="auth-primary disabled:cursor-wait disabled:opacity-70"
+                >
+                  {isLogoutPending ? "Logging out…" : "Log out"}
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
       )}
 
