@@ -6,6 +6,7 @@ import type { FileUIPart, UIMessage } from "ai";
 import {
   ArrowUpRight,
   LogIn,
+  LogOut,
   Menu,
   Plus,
   Settings,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { signOut } from "next-auth/react";
 import AuthOverlay from "./components/auth-overlay";
 
 const MAX_FILES = 4;
@@ -281,6 +283,7 @@ export default function MainChat() {
   const [input, setInput] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const [authMode, setAuthMode] = useState<
     "prompt" | "login" | "register" | null
   >(null);
@@ -303,11 +306,17 @@ export default function MainChat() {
     let isCurrent = true;
     fetch("/api/auth/session")
       .then((response) => response.json())
-      .then((session: { user?: unknown }) => {
-        if (isCurrent) setIsAuthenticated(Boolean(session?.user));
+      .then((session: { user?: { name?: string | null } | null }) => {
+        if (isCurrent) {
+          setIsAuthenticated(Boolean(session?.user));
+          setUserName(session?.user?.name ?? null);
+        }
       })
       .catch(() => {
-        if (isCurrent) setIsAuthenticated(false);
+        if (isCurrent) {
+          setIsAuthenticated(false);
+          setUserName(null);
+        }
       });
     return () => {
       isCurrent = false;
@@ -393,6 +402,70 @@ export default function MainChat() {
     setAuthMode(null);
   }
 
+  async function handleSignOut() {
+    await signOut({ redirect: false });
+    setIsAuthenticated(false);
+    setUserName(null);
+  }
+
+  function renderAccountControls(isMobile = false) {
+    if (isAuthenticated === null) return null;
+
+    if (isAuthenticated) {
+      const initial = userName?.trim().charAt(0).toUpperCase() || "U";
+
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => void handleSignOut()}
+            className="flex h-10 w-full items-center gap-3 px-3 text-left text-sm text-[#62675d] transition hover:bg-[#e4e4d9] hover:text-(--ink)"
+          >
+            <LogOut aria-hidden="true" size={17} />
+            Log out
+          </button>
+          <div className="flex min-w-0 items-center gap-3 px-3 py-2">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full border border-[#20251f]/10 bg-(--tomato) font-serif text-lg text-white">
+              {initial}
+            </span>
+            <span className="min-w-0 truncate text-sm text-(--ink)">
+              {userName || "Your account"}
+            </span>
+          </div>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => {
+            setAuthMode("login");
+            if (isMobile) setMobileNavOpen(false);
+          }}
+          className="flex h-10 w-full items-center gap-3 px-3 text-left text-sm text-[#62675d] transition hover:bg-[#e4e4d9] hover:text-(--ink)"
+        >
+          <LogIn aria-hidden="true" size={17} />
+          Log in
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setAuthMode("register");
+            if (isMobile) setMobileNavOpen(false);
+          }}
+          className="flex h-10 w-full items-center justify-center gap-2 bg-(--leaf) px-3 text-sm text-white transition hover:bg-[#914b35]"
+        >
+          <UserRoundPlus aria-hidden="true" size={16} />
+          Create account <ArrowUpRight aria-hidden="true" size={14} />
+        </button>
+      </>
+    );
+  }
+
+  const firstName = userName?.trim().split(/\s+/)[0];
+
   function beginSidebarResize(event: React.PointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return;
     const startX = event.clientX;
@@ -448,22 +521,7 @@ export default function MainChat() {
             <Settings aria-hidden="true" size={17} />
             Settings
           </button>
-          <button
-            type="button"
-            onClick={() => setAuthMode("login")}
-            className="flex h-10 w-full items-center gap-3 px-3 text-left text-sm text-[#62675d] transition hover:bg-[#e4e4d9] hover:text-(--ink)"
-          >
-            <LogIn aria-hidden="true" size={17} />
-            Log in
-          </button>
-          <button
-            type="button"
-            onClick={() => setAuthMode("register")}
-            className="flex h-10 w-full items-center justify-center gap-2 bg-(--leaf) px-3 text-sm text-white transition hover:bg-[#914b35]"
-          >
-            <UserRoundPlus aria-hidden="true" size={16} />
-            Create account <ArrowUpRight aria-hidden="true" size={14} />
-          </button>
+          {renderAccountControls()}
         </div>
         <div
           role="separator"
@@ -533,28 +591,7 @@ export default function MainChat() {
                 <Settings aria-hidden="true" size={17} />
                 Settings
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("login");
-                  setMobileNavOpen(false);
-                }}
-                className="flex h-10 w-full items-center gap-3 px-3 text-left text-sm text-[#62675d] transition hover:bg-[#e4e4d9] hover:text-(--ink)"
-              >
-                <LogIn aria-hidden="true" size={17} />
-                Log in
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("register");
-                  setMobileNavOpen(false);
-                }}
-                className="flex h-10 w-full items-center justify-center gap-2 bg-(--leaf) px-3 text-sm text-white transition hover:bg-[#914b35]"
-              >
-                <UserRoundPlus aria-hidden="true" size={16} />
-                Create account <ArrowUpRight aria-hidden="true" size={14} />
-              </button>
+              {renderAccountControls(true)}
             </div>
           </aside>
         </div>
@@ -576,12 +613,17 @@ export default function MainChat() {
                 Relay <span className="text-(--leaf)">AI</span>
               </span>
             </div>
-            <span className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.14em] text-[#767b70]">
-              <span
-                className={`size-1.5 rounded-full ${isStreaming ? "animate-pulse bg-(--tomato)" : "bg-(--leaf)"}`}
-              />
-              {isStreaming ? "Working" : "Ready"}
-            </span>
+            <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+              <span className="max-w-32 truncate font-mono text-[9px] uppercase tracking-[0.14em] text-(--leaf)">
+                Welcome{isAuthenticated && firstName ? ` ${firstName}` : ""}
+              </span>
+              <span className="flex shrink-0 items-center gap-2 font-mono text-[9px] uppercase tracking-[0.14em] text-[#767b70]">
+                <span
+                  className={`size-1.5 rounded-full ${isStreaming ? "animate-pulse bg-(--tomato)" : "bg-(--leaf)"}`}
+                />
+                {isStreaming ? "Working" : "Ready"}
+              </span>
+            </div>
           </div>
         </header>
 
