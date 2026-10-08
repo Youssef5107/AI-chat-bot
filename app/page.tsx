@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import AuthOverlay from "./components/auth-overlay";
 import Conversation from "./components/conversation";
+import FirstVisitIntro from "./components/first-visit-intro";
 import { SaylaBrand } from "./components/sayla-brand";
 import SideNav from "./components/side-nav";
 import {
@@ -150,6 +151,7 @@ export default function MainChat() {
 
   return (
     <div className="app-shell flex h-dvh overflow-hidden bg-(--paper) text-(--ink)">
+      <FirstVisitIntro />
       <SideNav
         isAuthenticated={isAuthenticated}
         userName={userName}
