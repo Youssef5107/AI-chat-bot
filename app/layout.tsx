@@ -13,11 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Relay AI",
+  title: "Sayla | The Writing & Thinking Studio",
   description:
-    "A helpful AI workspace for everyday questions and creative tools.",
+    "Sayla is a writing and thinking studio for everyday questions and creative tools.",
   icons: {
-    icon: "/relay-icon.svg",
+    icon: "/sayla-mark.svg",
   },
 };
 
