@@ -3,6 +3,7 @@
 import { ArrowLeft, Check, KeyRound, Mail, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import FirstVisitIntro from "../components/first-visit-intro";
 import { SaylaBrand } from "../components/sayla-brand";
 
 type SettingsProfile = {
@@ -178,6 +179,7 @@ export default function SettingsPage() {
 
   return (
     <main className="min-h-dvh bg-(--paper) text-(--ink)">
+      <FirstVisitIntro playOnMount durationMs={1000} />
       <header className="border-b border-[#20251f]/15 bg-[#eeece2]">
         <div className="mx-auto flex h-18 max-w-5xl items-center justify-between px-5 sm:px-8">
           <Link
