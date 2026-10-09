@@ -2,10 +2,14 @@
 
 import {
   ArrowUpRight,
+  Check,
+  EllipsisVertical,
   LogIn,
   LogOut,
+  Pencil,
   Plus,
   Settings,
+  Trash2,
   UserRoundPlus,
   X,
 } from "lucide-react";
@@ -14,22 +18,34 @@ import { useState } from "react";
 import { SaylaBrand } from "./sayla-brand";
 
 type SideNavProps = {
+  chats: Array<{ id: string; title: string | null }>;
+  activeChatId: string | null;
   isAuthenticated: boolean | null;
+  isChatsLoading: boolean;
   userName: string | null;
   mobileNavOpen: boolean;
   onMobileNavOpenChange: (open: boolean) => void;
   onNewChat: () => void;
+  onSelectChat: (chatId: string) => void;
+  onRenameChat: (chatId: string, title: string) => Promise<void>;
+  onDeleteChat: (chatId: string) => Promise<void>;
   onLogin: () => void;
   onRegister: () => void;
   onLogout: () => Promise<void>;
 };
 
 export default function SideNav({
+  chats,
+  activeChatId,
   isAuthenticated,
+  isChatsLoading,
   userName,
   mobileNavOpen,
   onMobileNavOpenChange,
   onNewChat,
+  onSelectChat,
+  onRenameChat,
+  onDeleteChat,
   onLogin,
   onRegister,
   onLogout,
@@ -38,6 +54,15 @@ export default function SideNav({
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isLogoutPending, setIsLogoutPending] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [openChatMenuId, setOpenChatMenuId] = useState<string | null>(null);
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editedChatTitle, setEditedChatTitle] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [isDeletePending, setIsDeletePending] = useState(false);
+  const [chatActionError, setChatActionError] = useState<string | null>(null);
 
   function beginSidebarResize(event: React.PointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return;
@@ -159,6 +184,203 @@ export default function SideNav({
     );
   }
 
+  async function saveChatTitle(chatId: string) {
+    const title = editedChatTitle.trim();
+    if (!title) return;
+    try {
+      await onRenameChat(chatId, title);
+      setEditingChatId(null);
+      setOpenChatMenuId(null);
+      setChatActionError(null);
+    } catch {
+      setChatActionError("Could not rename this chat. Please try again.");
+    }
+  }
+
+  async function confirmDeleteChat() {
+    if (!deleteTarget) return;
+    setIsDeletePending(true);
+    setChatActionError(null);
+    try {
+      await onDeleteChat(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch {
+      setChatActionError("Could not delete this chat. Please try again.");
+    } finally {
+      setIsDeletePending(false);
+    }
+  }
+
+  function renderChatHistory() {
+    return (
+      <section className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+        <h2 className="mb-3 px-3 font-mono text-[9px] uppercase tracking-[0.15em] text-[#85897e]">
+          Chats
+        </h2>
+        {isChatsLoading ? (
+          <p className="px-3 py-2 text-xs text-[#85897e]">Loading chats...</p>
+        ) : chats.length === 0 ? (
+          <p className="px-3 py-2 text-xs text-[#85897e]">No chats yet</p>
+        ) : (
+          <ul className="space-y-1">
+            {chats.map((chat) => (
+              <li key={chat.id} className="relative">
+                {editingChatId === chat.id ? (
+                  <div className="flex min-h-10 items-center gap-1 border border-(--leaf)/30 bg-[#f8f6ef] px-2">
+                    <input
+                      autoFocus
+                      aria-label="Chat title"
+                      value={editedChatTitle}
+                      maxLength={80}
+                      onChange={(event) =>
+                        setEditedChatTitle(event.target.value)
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") void saveChatTitle(chat.id);
+                        if (event.key === "Escape") setEditingChatId(null);
+                      }}
+                      className="min-w-0 flex-1 bg-transparent text-xs text-(--ink) outline-none"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Save chat title"
+                      onClick={() => void saveChatTitle(chat.id)}
+                      className="grid size-7 shrink-0 place-items-center text-(--leaf) hover:bg-[#e8e9de]"
+                    >
+                      <Check size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Cancel rename"
+                      onClick={() => setEditingChatId(null)}
+                      className="grid size-7 shrink-0 place-items-center text-[#85897e] hover:bg-[#e8e9de]"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className={`group flex min-h-10 items-center gap-1 ${activeChatId === chat.id ? "bg-[#e4e4d9] text-(--ink)" : "text-[#62675d] hover:bg-[#e8e9de]"}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectChat(chat.id);
+                        onMobileNavOpenChange(false);
+                      }}
+                      className="min-w-0 flex-1 truncate px-3 py-2 text-left text-xs"
+                      title={chat.title || "New chat"}
+                    >
+                      {chat.title || "New chat"}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Actions for ${chat.title || "chat"}`}
+                      aria-expanded={openChatMenuId === chat.id}
+                      onClick={() =>
+                        setOpenChatMenuId((current) =>
+                          current === chat.id ? null : chat.id,
+                        )
+                      }
+                      className="mr-1 grid size-8 shrink-0 place-items-center text-[#777b71] opacity-100 transition hover:bg-white/70 hover:text-(--ink) md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100"
+                    >
+                      <EllipsisVertical size={17} />
+                    </button>
+                    {openChatMenuId === chat.id && (
+                      <div className="absolute top-9 right-1 z-30 w-32 border border-[#20251f]/12 bg-[#fffdf7] py-1 shadow-[0_8px_24px_rgba(44,47,37,0.12)]">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditedChatTitle(chat.title || "");
+                            setEditingChatId(chat.id);
+                            setOpenChatMenuId(null);
+                          }}
+                          className="flex h-9 w-full items-center gap-2 px-3 text-left text-xs text-[#565c51] hover:bg-[#e8e9de]"
+                        >
+                          <Pencil size={14} /> Rename
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteTarget({
+                              id: chat.id,
+                              title: chat.title || "New chat",
+                            });
+                            setOpenChatMenuId(null);
+                          }}
+                          className="flex h-9 w-full items-center gap-2 px-3 text-left text-xs text-[#9d3b2a] hover:bg-[#f0e2d7]"
+                        >
+                          <Trash2 size={14} /> Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {chatActionError && (
+          <p role="alert" className="mt-2 px-3 text-xs text-[#9d3b2a]">
+            {chatActionError}
+          </p>
+        )}
+      </section>
+    );
+  }
+
+  function renderDeleteConfirmation() {
+    if (!deleteTarget) return null;
+    return (
+      <div className="auth-overlay">
+        <button
+          type="button"
+          aria-label="Cancel chat deletion"
+          onClick={() => setDeleteTarget(null)}
+          className="auth-overlay__backdrop"
+        />
+        <section
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="delete-chat-title"
+          aria-describedby="delete-chat-description"
+          className="auth-dialog"
+        >
+          <p className="auth-eyebrow">Delete chat</p>
+          <h2 id="delete-chat-title" className="auth-title">
+            Delete this conversation?
+          </h2>
+          <p id="delete-chat-description" className="auth-copy">
+            “{deleteTarget.title}” and its messages will be permanently deleted.
+          </p>
+          {chatActionError && (
+            <p role="alert" className="auth-error mt-3">
+              {chatActionError}
+            </p>
+          )}
+          <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(null)}
+              disabled={isDeletePending}
+              className="auth-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmDeleteChat()}
+              disabled={isDeletePending}
+              className="auth-primary disabled:cursor-wait disabled:opacity-70"
+            >
+              {isDeletePending ? "Deleting..." : "Delete chat"}
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <>
       <aside
@@ -175,6 +397,7 @@ export default function SideNav({
           </Link>
         </div>
         <div className="px-4">{renderNewChatButton()}</div>
+        {renderChatHistory()}
         <div className="mt-auto space-y-2 border-t border-[#20251f]/10 p-4">
           {renderSettingsButton()}
           {renderAccountControls()}
@@ -225,6 +448,7 @@ export default function SideNav({
               </button>
             </div>
             <div className="px-4">{renderNewChatButton()}</div>
+            {renderChatHistory()}
             <div className="mt-auto space-y-2 border-t border-[#20251f]/10 p-4">
               {renderSettingsButton()}
               {renderAccountControls(true)}
@@ -290,6 +514,7 @@ export default function SideNav({
           </section>
         </div>
       )}
+      {renderDeleteConfirmation()}
     </>
   );
 }
