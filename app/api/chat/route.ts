@@ -14,7 +14,6 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recipeSchema } from "../../../lib/recipe-schema";
-import { transcribeAudioFile } from "../../../lib/transcribe-audio";
 
 const primaryOpenRouterKey =
   process.env.OPENROUTER_KEY_PRIMARY ?? process.env.OPENROUTER_API_KEY;
@@ -390,6 +389,8 @@ export async function POST(req: Request) {
         if (!context.audioFile) {
           throw new Error("Attach an audio file so I can transcribe it.");
         }
+        const { transcribeAudioFile } =
+          await import("../../../lib/transcribe-audio");
         const file = dataUrlToFile(
           context.audioFile.dataUrl,
           context.audioFile.name,
