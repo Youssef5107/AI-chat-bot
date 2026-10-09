@@ -43,6 +43,7 @@ export default function MainChat() {
   const [userName, setUserName] = useState<string | null>(null);
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [isChatLoading, setIsChatLoading] = useState(false);
   const [isChatsLoaded, setIsChatsLoaded] = useState(false);
   const [authMode, setAuthMode] = useState<
     "prompt" | "login" | "register" | null
@@ -200,6 +201,8 @@ export default function MainChat() {
   }
 
   function startNewChat() {
+    chatLoadSequence.current += 1;
+    setIsChatLoading(false);
     if (isStreaming) stop();
     setMessages([]);
     setInput("");
@@ -212,7 +215,9 @@ export default function MainChat() {
 
   async function selectChat(chatId: string) {
     const requestSequence = ++chatLoadSequence.current;
+    setIsChatLoading(true);
     if (isStreaming) await stop();
+    if (requestSequence !== chatLoadSequence.current) return;
     setMessages([]);
     setInput("");
     setFiles([]);
@@ -237,6 +242,10 @@ export default function MainChat() {
             ? caughtError.message
             : "Could not open this chat.",
         );
+      }
+    } finally {
+      if (requestSequence === chatLoadSequence.current) {
+        setIsChatLoading(false);
       }
     }
   }
@@ -285,6 +294,9 @@ export default function MainChat() {
       <SideNav
         chats={chats}
         activeChatId={activeChatId}
+        isNewChatActive={
+          !activeChatId && messages.length === 0 && !isChatLoading
+        }
         isAuthenticated={isAuthenticated}
         isChatsLoading={isChatsLoading}
         userName={userName}
@@ -330,15 +342,28 @@ export default function MainChat() {
         </header>
 
         <main className="page-enter flex min-h-0 flex-1 flex-col">
-          <Conversation
-            messages={messages}
-            isStreaming={isStreaming}
-            isReady={status === "ready"}
-            dismissedSourceMessageId={dismissedSourceMessageId}
-            onStarterPrompt={setInput}
-            onShowSources={showSources}
-            onDismissSources={setDismissedSourceMessageId}
-          />
+          {isChatLoading ? (
+            <section
+              className="flex min-h-0 flex-1 items-center justify-center px-5 py-6"
+              role="status"
+              aria-live="polite"
+            >
+              <span className="inline-flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.14em] text-(--leaf)">
+                <span className="size-2 animate-pulse rounded-full bg-(--tomato)" />
+                Loading your chat
+              </span>
+            </section>
+          ) : (
+            <Conversation
+              messages={messages}
+              isStreaming={isStreaming}
+              isReady={status === "ready"}
+              dismissedSourceMessageId={dismissedSourceMessageId}
+              onStarterPrompt={setInput}
+              onShowSources={showSources}
+              onDismissSources={setDismissedSourceMessageId}
+            />
+          )}
 
           {(error || uploadError) && (
             <div
