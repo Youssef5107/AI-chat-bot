@@ -2,6 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import type { UIMessage } from "ai";
 import { Menu } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
@@ -23,6 +24,8 @@ import {
 
 const chatTransport = new DefaultChatTransport({ api: "/api/chat" });
 
+type ChatSummary = { id: string; title: string | null; updatedAt?: string };
+
 export default function MainChat() {
   const {
     messages,
@@ -38,6 +41,9 @@ export default function MainChat() {
   const [files, setFiles] = useState<File[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [chats, setChats] = useState<ChatSummary[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [isChatsLoaded, setIsChatsLoaded] = useState(false);
   const [authMode, setAuthMode] = useState<
     "prompt" | "login" | "register" | null
   >(null);
@@ -47,6 +53,7 @@ export default function MainChat() {
     string | null
   >(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatLoadSequence = useRef(0);
   const isStreaming = status === "streaming" || status === "submitted";
 
   useEffect(() => {
@@ -70,21 +77,79 @@ export default function MainChat() {
     };
   }, []);
 
+  useEffect(() => {
+    if (isAuthenticated !== true) return;
+
+    let isCurrent = true;
+    fetch("/api/chats")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load chat history.");
+        return (await response.json()) as ChatSummary[];
+      })
+      .then((loadedChats) => {
+        if (isCurrent) {
+          setChats(loadedChats);
+          setIsChatsLoaded(true);
+        }
+      })
+      .catch((error: unknown) => {
+        if (isCurrent) {
+          console.error("Could not load chat history:", error);
+          setChats([]);
+          setIsChatsLoaded(true);
+        }
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [isAuthenticated]);
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const text = input.trim();
     if ((!text && files.length === 0) || isStreaming) return;
+    if (isAuthenticated === null) {
+      setUploadError("Checking your account. Please try again in a moment.");
+      return;
+    }
 
     try {
       const fileParts = await Promise.all(files.map(fileToUIPart));
       const shouldPromptForAuth =
         isAuthenticated === false && messages.length === 0;
-      const sending = sendMessage({ text, files: fileParts });
+      let chatId = activeChatId;
+      if (isAuthenticated && !chatId) {
+        const response = await fetch("/api/chats", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ firstMessage: text }),
+        });
+        if (!response.ok) throw new Error("Could not start a saved chat.");
+        const chat = (await response.json()) as ChatSummary;
+        chatId = chat.id;
+        setActiveChatId(chat.id);
+        setChats((current) => [
+          chat,
+          ...current.filter((item) => item.id !== chat.id),
+        ]);
+      }
+      const sending = sendMessage(
+        { text, files: fileParts },
+        { body: chatId ? { chatId } : {} },
+      );
       if (shouldPromptForAuth) setAuthMode("prompt");
       setInput("");
       setFiles([]);
       setUploadError(null);
       await sending;
+      if (chatId) {
+        setChats((current) => {
+          const updatedChat = current.find((chat) => chat.id === chatId);
+          return updatedChat
+            ? [updatedChat, ...current.filter((chat) => chat.id !== chatId)]
+            : current;
+        });
+      }
     } catch (caughtError) {
       setUploadError(
         caughtError instanceof Error
@@ -128,7 +193,10 @@ export default function MainChat() {
 
   function showSources() {
     if (isStreaming) return;
-    void sendMessage({ text: SOURCE_REQUEST_PROMPT });
+    void sendMessage(
+      { text: SOURCE_REQUEST_PROMPT },
+      { body: activeChatId ? { chatId: activeChatId } : {} },
+    );
   }
 
   function startNewChat() {
@@ -139,25 +207,93 @@ export default function MainChat() {
     setUploadError(null);
     setDismissedSourceMessageId(null);
     setAuthMode(null);
+    setActiveChatId(null);
+  }
+
+  async function selectChat(chatId: string) {
+    const requestSequence = ++chatLoadSequence.current;
+    if (isStreaming) await stop();
+    setMessages([]);
+    setInput("");
+    setFiles([]);
+    setUploadError(null);
+    setDismissedSourceMessageId(null);
+    setActiveChatId(null);
+
+    try {
+      const response = await fetch(`/api/chats/${encodeURIComponent(chatId)}`);
+      if (!response.ok) throw new Error("Could not open this chat.");
+      const chat = (await response.json()) as {
+        id: string;
+        messages: UIMessage[];
+      };
+      if (requestSequence !== chatLoadSequence.current) return;
+      setMessages(chat.messages);
+      setActiveChatId(chat.id);
+    } catch (caughtError) {
+      if (requestSequence === chatLoadSequence.current) {
+        setUploadError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Could not open this chat.",
+        );
+      }
+    }
+  }
+
+  async function renameChat(chatId: string, title: string) {
+    const response = await fetch(`/api/chats/${encodeURIComponent(chatId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    if (!response.ok) throw new Error("Could not rename this chat.");
+    const updated = (await response.json()) as { id: string; title: string };
+    setChats((current) =>
+      current.map((chat) =>
+        chat.id === updated.id ? { ...chat, title: updated.title } : chat,
+      ),
+    );
+  }
+
+  async function deleteChat(chatId: string) {
+    if (activeChatId === chatId && isStreaming) await stop();
+    const response = await fetch(`/api/chats/${encodeURIComponent(chatId)}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Could not delete this chat.");
+    setChats((current) => current.filter((chat) => chat.id !== chatId));
+    if (activeChatId === chatId) startNewChat();
   }
 
   async function handleSignOut() {
     await signOut({ redirect: false });
     setIsAuthenticated(false);
     setUserName(null);
+    setChats([]);
+    setIsChatsLoaded(false);
+    setActiveChatId(null);
+    setMessages([]);
   }
 
   const firstName = userName?.trim().split(/\s+/)[0];
+  const isChatsLoading = isAuthenticated === true && !isChatsLoaded;
 
   return (
     <div className="app-shell flex h-dvh overflow-hidden bg-(--paper) text-(--ink)">
       <FirstVisitIntro />
       <SideNav
+        chats={chats}
+        activeChatId={activeChatId}
         isAuthenticated={isAuthenticated}
+        isChatsLoading={isChatsLoading}
         userName={userName}
         mobileNavOpen={mobileNavOpen}
         onMobileNavOpenChange={setMobileNavOpen}
         onNewChat={startNewChat}
+        onSelectChat={(chatId) => void selectChat(chatId)}
+        onRenameChat={renameChat}
+        onDeleteChat={deleteChat}
         onLogin={() => setAuthMode("login")}
         onRegister={() => setAuthMode("register")}
         onLogout={handleSignOut}
@@ -220,7 +356,10 @@ export default function MainChat() {
                     type="button"
                     onClick={() => {
                       setUploadError(null);
-                      if (error) void regenerate();
+                      if (error)
+                        void regenerate({
+                          body: activeChatId ? { chatId: activeChatId } : {},
+                        });
                     }}
                     className="font-mono text-[10px] uppercase tracking-[0.13em] text-(--leaf) underline underline-offset-4 transition hover:text-(--tomato)"
                   >
