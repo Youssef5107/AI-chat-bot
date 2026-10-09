@@ -177,15 +177,16 @@ export default function SideNav({
 
   function renderSettingsButton() {
     return (
-      <button
-        type="button"
+      <Link
+        href="/settings"
+        onClick={() => onMobileNavOpenChange(false)}
         className="flex h-10 w-full items-center gap-3 px-3 text-left text-sm text-[#62675d] transition hover:bg-[#e4e4d9] hover:text-(--ink)"
       >
         <span className="grid size-9 shrink-0 place-items-center">
           <Settings aria-hidden="true" size={17} />
         </span>
         Settings
-      </button>
+      </Link>
     );
   }
 
