@@ -20,6 +20,7 @@ import { SaylaBrand } from "./sayla-brand";
 type SideNavProps = {
   chats: Array<{ id: string; title: string | null }>;
   activeChatId: string | null;
+  isNewChatActive: boolean;
   isAuthenticated: boolean | null;
   isChatsLoading: boolean;
   userName: string | null;
@@ -37,6 +38,7 @@ type SideNavProps = {
 export default function SideNav({
   chats,
   activeChatId,
+  isNewChatActive,
   isAuthenticated,
   isChatsLoading,
   userName,
@@ -158,11 +160,14 @@ export default function SideNav({
     return (
       <button
         type="button"
+        disabled={isNewChatActive}
         onClick={() => {
           onNewChat();
           onMobileNavOpenChange(false);
         }}
-        className="new-chat-button flex h-11 w-full items-center gap-3 border border-[#20251f]/15 bg-[#f8f6ef] px-3 text-sm text-[#42483f] transition hover:border-(--leaf) hover:bg-white"
+        aria-current={isNewChatActive ? "page" : undefined}
+        title={isNewChatActive ? "You are already in a new chat" : undefined}
+        className="new-chat-button flex h-11 w-full items-center gap-3 border border-[#20251f]/15 bg-[#f8f6ef] px-3 text-sm text-[#42483f] transition hover:border-(--leaf) hover:bg-white disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:border-[#20251f]/15 disabled:hover:bg-[#f8f6ef]"
       >
         <Plus aria-hidden="true" size={18} className="text-(--leaf)" />
         New chat
