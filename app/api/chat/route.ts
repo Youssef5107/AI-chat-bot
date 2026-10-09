@@ -9,7 +9,10 @@ import {
   streamText,
   tool,
 } from "ai";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { recipeSchema } from "../../../lib/recipe-schema";
 import { transcribeAudioFile } from "../../../lib/transcribe-audio";
 
@@ -174,7 +177,7 @@ export async function POST(req: Request) {
     );
   }
 
-  let requestBody: { messages?: unknown };
+  let requestBody: { messages?: unknown; chatId?: unknown };
   try {
     requestBody = await req.json();
   } catch {
@@ -297,6 +300,51 @@ export async function POST(req: Request) {
     );
   }
 
+  const chatId =
+    typeof requestBody.chatId === "string" ? requestBody.chatId : null;
+  let chatOwnerId: string | null = null;
+  if (chatId) {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return Response.json(
+        { error: "Sign in to continue this chat." },
+        { status: 401 },
+      );
+    }
+    const ownedChat = await prisma.chat.findFirst({
+      where: { id: chatId, userId: session.user.id },
+      select: { userId: true },
+    });
+    if (!ownedChat) {
+      return Response.json({ error: "Chat not found." }, { status: 404 });
+    }
+    chatOwnerId = ownedChat.userId;
+
+    const latestUserMessage = messages[messages.length - 1];
+    if (
+      latestUserMessage &&
+      typeof latestUserMessage === "object" &&
+      "id" in latestUserMessage &&
+      typeof latestUserMessage.id === "string" &&
+      "role" in latestUserMessage &&
+      latestUserMessage.role === "user" &&
+      "parts" in latestUserMessage &&
+      Array.isArray(latestUserMessage.parts)
+    ) {
+      await prisma.message.create({
+        data: {
+          chatId,
+          role: "user",
+          parts: latestUserMessage.parts as Prisma.InputJsonValue,
+        },
+      });
+      await prisma.chat.update({
+        where: { id: chatId },
+        data: { updatedAt: new Date() },
+      });
+    }
+  }
+
   const currentDate = new Date().toISOString().slice(0, 10);
   const tools = {
     web_search: openrouter.tools.webSearch({ maxResults: 5, engine: "auto" }),
@@ -413,7 +461,32 @@ export async function POST(req: Request) {
       totalTokens: usage.totalTokens,
     });
   });
-  return result.toUIMessageStreamResponse({ onError: getStreamErrorMessage });
+  return result.toUIMessageStreamResponse({
+    originalMessages: messages,
+    onFinish: async ({ responseMessage, isAborted }) => {
+      if (
+        !chatId ||
+        !chatOwnerId ||
+        isAborted ||
+        responseMessage.role !== "assistant"
+      ) {
+        return;
+      }
+
+      await prisma.message.create({
+        data: {
+          chatId,
+          role: "assistant",
+          parts: responseMessage.parts as Prisma.InputJsonValue,
+        },
+      });
+      await prisma.chat.updateMany({
+        where: { id: chatId, userId: chatOwnerId },
+        data: { updatedAt: new Date() },
+      });
+    },
+    onError: getStreamErrorMessage,
+  });
 }
 
 function dataUrlToFile(dataUrl: string, name: string, mediaType: string) {
