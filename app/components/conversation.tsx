@@ -15,6 +15,7 @@ import {
 type ConversationProps = {
   messages: UIMessage[];
   isStreaming: boolean;
+  isSendingMessage: boolean;
   isReady: boolean;
   dismissedSourceMessageId: string | null;
   onStarterPrompt: (prompt: string) => void;
@@ -25,6 +26,7 @@ type ConversationProps = {
 export default function Conversation({
   messages,
   isStreaming,
+  isSendingMessage,
   isReady,
   dismissedSourceMessageId,
   onStarterPrompt,
@@ -37,6 +39,8 @@ export default function Conversation({
   const isSearchingWeb =
     isStreaming && isWebSearchActive(latestAssistantMessage);
   const activeMediaTool = isStreaming ? getActiveMediaTool(messages) : null;
+  const shouldShowImmediatePlaceholder =
+    isSendingMessage && messages.at(-1)?.role === "user";
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -266,6 +270,29 @@ export default function Conversation({
             </article>
           );
         })}
+
+        {shouldShowImmediatePlaceholder && (
+          <article
+            className="message-arrive flex justify-start"
+            aria-live="polite"
+          >
+            <div className="w-full sm:max-w-[90%]">
+              <p className="mb-2 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.16em] text-(--leaf)">
+                <span className="size-1.5 rounded-full bg-(--leaf)" />
+                Sayla · response
+              </p>
+              <div
+                className="inline-flex items-center gap-1.5 border-l-2 border-(--leaf) bg-[#fffdf7] px-5 py-4 shadow-[0_8px_24px_rgba(44,47,37,0.04)]"
+                role="status"
+                aria-label="Preparing response"
+              >
+                <span className="size-1.5 animate-pulse rounded-full bg-(--tomato)" />
+                <span className="size-1.5 animate-pulse rounded-full bg-(--tomato) [animation-delay:0.15s]" />
+                <span className="size-1.5 animate-pulse rounded-full bg-(--tomato) [animation-delay:0.3s]" />
+              </div>
+            </div>
+          </article>
+        )}
       </div>
     </section>
   );

@@ -39,6 +39,7 @@ export default function MainChat() {
   } = useChat({ transport: chatTransport });
   const [input, setInput] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [chats, setChats] = useState<ChatSummary[]>([]);
@@ -134,6 +135,7 @@ export default function MainChat() {
           ...current.filter((item) => item.id !== chat.id),
         ]);
       }
+      setIsSendingMessage(true);
       const sending = sendMessage(
         { text, files: fileParts },
         { body: chatId ? { chatId } : {} },
@@ -143,6 +145,7 @@ export default function MainChat() {
       setFiles([]);
       setUploadError(null);
       await sending;
+      setIsSendingMessage(false);
       if (chatId) {
         setChats((current) => {
           const updatedChat = current.find((chat) => chat.id === chatId);
@@ -152,6 +155,7 @@ export default function MainChat() {
         });
       }
     } catch (caughtError) {
+      setIsSendingMessage(false);
       setUploadError(
         caughtError instanceof Error
           ? caughtError.message
@@ -194,16 +198,18 @@ export default function MainChat() {
 
   function showSources() {
     if (isStreaming) return;
+    setIsSendingMessage(true);
     void sendMessage(
       { text: SOURCE_REQUEST_PROMPT },
       { body: activeChatId ? { chatId: activeChatId } : {} },
-    );
+    ).finally(() => setIsSendingMessage(false));
   }
 
   function startNewChat() {
     chatLoadSequence.current += 1;
     setIsChatLoading(false);
     if (isStreaming) stop();
+    setIsSendingMessage(false);
     setMessages([]);
     setInput("");
     setFiles([]);
@@ -217,6 +223,7 @@ export default function MainChat() {
     const requestSequence = ++chatLoadSequence.current;
     setIsChatLoading(true);
     if (isStreaming) await stop();
+    setIsSendingMessage(false);
     if (requestSequence !== chatLoadSequence.current) return;
     setMessages([]);
     setInput("");
@@ -357,6 +364,7 @@ export default function MainChat() {
             <Conversation
               messages={messages}
               isStreaming={isStreaming}
+              isSendingMessage={isSendingMessage}
               isReady={status === "ready"}
               dismissedSourceMessageId={dismissedSourceMessageId}
               onStarterPrompt={setInput}
