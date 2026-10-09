@@ -14,8 +14,8 @@ export default function FirstVisitIntro() {
   useEffect(() => {
     const activationTimer = window.setTimeout(() => {
       try {
-        if (window.localStorage.getItem(INTRO_SEEN_KEY)) return;
-        window.localStorage.setItem(INTRO_SEEN_KEY, "true");
+        if (window.sessionStorage.getItem(INTRO_SEEN_KEY)) return;
+        window.sessionStorage.setItem(INTRO_SEEN_KEY, "true");
       } catch {
         // Show the intro even when browser storage is unavailable.
       }
