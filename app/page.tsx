@@ -21,6 +21,14 @@ import {
   MAX_TOTAL_FILE_BYTES,
   SOURCE_REQUEST_PROMPT,
 } from "@/lib/chat-utils";
+import {
+  createGuestChat,
+  deleteGuestChat,
+  loadGuestChat,
+  loadGuestChats,
+  renameGuestChat,
+  saveGuestChat,
+} from "@/lib/guest-chat-storage";
 
 const chatTransport = new DefaultChatTransport({ api: "/api/chat" });
 
@@ -80,6 +88,14 @@ export default function MainChat() {
   }, []);
 
   useEffect(() => {
+    if (isAuthenticated === false) {
+      const loadTimer = window.setTimeout(() => {
+        const guestChats = loadGuestChats();
+        setChats(guestChats);
+        setIsChatsLoaded(true);
+      }, 0);
+      return () => window.clearTimeout(loadTimer);
+    }
     if (isAuthenticated !== true) return;
 
     let isCurrent = true;
@@ -105,6 +121,21 @@ export default function MainChat() {
       isCurrent = false;
     };
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (
+      isAuthenticated !== false ||
+      !activeChatId?.startsWith("guest-") ||
+      messages.length === 0
+    ) {
+      return;
+    }
+
+    const guestChat = loadGuestChat(activeChatId);
+    if (guestChat) {
+      saveGuestChat({ ...guestChat, messages });
+    }
+  }, [activeChatId, isAuthenticated, messages]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -134,11 +165,22 @@ export default function MainChat() {
           chat,
           ...current.filter((item) => item.id !== chat.id),
         ]);
+      } else if (isAuthenticated === false && !chatId) {
+        const guestChat = createGuestChat(text || files[0]?.name || "New chat");
+        chatId = guestChat.id;
+        saveGuestChat(guestChat);
+        setActiveChatId(guestChat.id);
+        setChats((current) => [
+          guestChat,
+          ...current.filter((item) => item.id !== guestChat.id),
+        ]);
       }
       setIsSendingMessage(true);
       const sending = sendMessage(
         { text, files: fileParts },
-        { body: chatId ? { chatId } : {} },
+        {
+          body: isAuthenticated && chatId ? { chatId } : {},
+        },
       );
       if (shouldPromptForAuth) setAuthMode("prompt");
       setInput("");
@@ -233,6 +275,15 @@ export default function MainChat() {
     setActiveChatId(null);
 
     try {
+      if (chatId.startsWith("guest-")) {
+        const guestChat = loadGuestChat(chatId);
+        if (!guestChat) throw new Error("Could not open this chat.");
+        if (requestSequence !== chatLoadSequence.current) return;
+        setMessages(guestChat.messages);
+        setActiveChatId(guestChat.id);
+        return;
+      }
+
       const response = await fetch(`/api/chats/${encodeURIComponent(chatId)}`);
       if (!response.ok) throw new Error("Could not open this chat.");
       const chat = (await response.json()) as {
@@ -258,6 +309,16 @@ export default function MainChat() {
   }
 
   async function renameChat(chatId: string, title: string) {
+    if (chatId.startsWith("guest-")) {
+      if (!renameGuestChat(chatId, title)) {
+        throw new Error("Could not rename this local chat.");
+      }
+      setChats((current) =>
+        current.map((chat) => (chat.id === chatId ? { ...chat, title } : chat)),
+      );
+      return;
+    }
+
     const response = await fetch(`/api/chats/${encodeURIComponent(chatId)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -274,6 +335,15 @@ export default function MainChat() {
 
   async function deleteChat(chatId: string) {
     if (activeChatId === chatId && isStreaming) await stop();
+    if (chatId.startsWith("guest-")) {
+      if (!deleteGuestChat(chatId)) {
+        throw new Error("Could not delete this local chat.");
+      }
+      setChats((current) => current.filter((chat) => chat.id !== chatId));
+      if (activeChatId === chatId) startNewChat();
+      return;
+    }
+
     const response = await fetch(`/api/chats/${encodeURIComponent(chatId)}`, {
       method: "DELETE",
     });
