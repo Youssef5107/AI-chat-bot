@@ -5,11 +5,12 @@ Relay AI is a single conversational workspace. The assistant selects tools from 
 Set the required provider keys in `.env.local`:
 
 ```env
-GROQ_API_KEY=your-groq-api-key
+GROQ_API_KEY=your-primary-groq-api-key
+GROQ_API_KEY_BACKUP=your-backup-groq-api-key
 POLLINATIONS_API_KEY=your-pollinations-api-key
 ```
 
-Text chat, recipe generation, and chat titles use the Groq model configured in `lib/ai-models.ts` via `groq(TEXT_MODEL_ID)`. Image generation uses FLUX.1 Schnell through Pollinations. Audio transcription runs the quantized Whisper model locally in the Node.js server; the model downloads from Hugging Face on first use and is cached on the server. Supported audio formats include MP3, MP4, M4A, MPEG, MPGA, WAV, WebM, OGG, and FLAC, up to 25 MB.
+Text chat, recipe generation, and chat titles use the Groq model configured in `lib/ai-models.ts` via `groq(TEXT_MODEL_ID)`. The app automatically falls back to `GROQ_API_KEY_BACKUP` when the primary key is rate-limited, rejected, or unavailable. Image generation uses FLUX.1 Schnell through Pollinations. Audio transcription runs the quantized Whisper model locally in the Node.js server; the model downloads from Hugging Face on first use and is cached on the server. Supported audio formats include MP3, MP4, M4A, MPEG, MPGA, WAV, WebM, OGG, and FLAC, up to 25 MB.
 
 Attach images, PDFs, and text files up to 8 MB each, or one audio file up to 25 MB. Up to four files can be attached to one message.
 
