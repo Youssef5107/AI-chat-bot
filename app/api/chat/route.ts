@@ -1,5 +1,4 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import {
   convertToModelMessages,
   generateImage,
@@ -12,51 +11,10 @@ import {
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { TEXT_MODEL_ID } from "@/lib/ai-models";
+import { groq } from "@/lib/groq-provider";
 import { prisma } from "@/lib/prisma";
 import { recipeSchema } from "../../../lib/recipe-schema";
-
-const primaryOpenRouterKey =
-  process.env.OPENROUTER_KEY_PRIMARY ?? process.env.OPENROUTER_API_KEY;
-const backupOpenRouterKey = process.env.OPENROUTER_KEY_BACKUP;
-
-async function isUsageLimitResponse(response: Response) {
-  if (response.status === 429) return true;
-  if (response.status !== 402) return false;
-
-  try {
-    const body: unknown = await response.clone().json();
-    return /quota|credit|usage limit|rate.?limit/i.test(JSON.stringify(body));
-  } catch {
-    return false;
-  }
-}
-
-async function fetchWithOpenRouterFallback(
-  input: RequestInfo | URL,
-  init?: RequestInit,
-) {
-  const request = new Request(input, init);
-  const backupKey = backupOpenRouterKey;
-  if (!backupKey || backupKey === primaryOpenRouterKey) {
-    return fetch(request);
-  }
-
-  const backupHeaders = new Headers(request.headers);
-  backupHeaders.set("Authorization", `Bearer ${backupKey}`);
-  const backupRequest = new Request(request.clone(), {
-    headers: backupHeaders,
-  });
-  const primaryResponse = await fetch(request);
-
-  if (!(await isUsageLimitResponse(primaryResponse))) return primaryResponse;
-
-  return fetch(backupRequest);
-}
-
-const openrouter = createOpenRouter({
-  apiKey: primaryOpenRouterKey,
-  fetch: fetchWithOpenRouterFallback,
-});
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -346,7 +304,6 @@ export async function POST(req: Request) {
 
   const currentDate = new Date().toISOString().slice(0, 10);
   const tools = {
-    web_search: openrouter.tools.webSearch({ maxResults: 5, engine: "auto" }),
     generate_image: tool({
       description:
         "Generate an image when the user asks to create, draw, or visualize an image. Use the Flux image model and return the generated image for display.",
@@ -412,14 +369,9 @@ export async function POST(req: Request) {
       }),
       execute: async ({ request, servings }, options) => {
         const result = await generateText({
-          model: openrouter("google/gemma-4-31b-it:free"),
+          model: groq(TEXT_MODEL_ID),
           output: Output.object({ schema: recipeSchema }),
-          tools: {
-            web_search: openrouter.tools.webSearch({
-              maxResults: 5,
-              engine: "auto",
-            }),
-          },
+          tools: {},
           stopWhen: isStepCount(3),
           abortSignal: options.abortSignal,
           system: `The current date is ${currentDate}. Return a practical recipe with concise ingredients and steps. Search for current food-safety guidance or other facts requiring verification. Cite only real source links from search results; never invent sources.`,
@@ -433,7 +385,7 @@ export async function POST(req: Request) {
   const audioFile = audioFiles[0] ?? null;
 
   const result = streamText({
-    model: openrouter("openrouter/free"),
+    model: groq(TEXT_MODEL_ID),
     messages: await convertToModelMessages(messages, { tools }),
     tools,
     toolsContext: { transcribe_audio: { audioFile } },
@@ -442,7 +394,6 @@ export async function POST(req: Request) {
   - For image generation requests, call generate_image. Do not merely describe the image.
   - ${audioFile ? "A supported audio attachment is present. Call transcribe_audio when the user asks to transcribe it or leaves the prompt blank; never guess at spoken content." : "If the user requests audio transcription without attaching audio, ask them to attach a recording."}
   - For recipe or cooking requests, call generate_recipe. Present the structured recipe result clearly.
-  - Use web_search for live information, current facts, and source requests that require searching. Never invent source links.
   - Use no specialized tool for ordinary conversation.
   - Never reveal internal reasoning, tool instructions, tool-call syntax, or markup such as <tool_call>, <think>, or function-call JSON. Answer the user directly.
   - Answer simple factual or narrowly scoped questions in one or two short sentences. Do not add an overview, list, or background unless asked.
